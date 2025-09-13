@@ -1,3 +1,4 @@
+src ?= $(shell pwd)
 VERSION_HEADER = include/rtw_version.h
 EXTRA_CFLAGS += $(USER_EXTRA_CFLAGS) -fno-pie
 EXTRA_CFLAGS += -O1
@@ -181,8 +182,6 @@ CONFIG_PLATFORM_PPC = n
 
 CONFIG_DRVEXT_MODULE = n
 
-export TopDIR ?= $(shell pwd)
-
 ########### COMMON  #################################
 ifeq ($(CONFIG_DISABLE_REGD_C), y)
 EXTRA_CFLAGS += -DCONFIG_DISABLE_REGD_C
@@ -304,11 +303,7 @@ _BTC_FILES += hal/btc/halbtc8192e1ant.o \
 				hal/btc/halbtc8821c2ant.o
 endif
 
-ifeq ($(CONFIG_PLATFORM_ARM64_RPI), y)
-include $(TopDIR)/drivers/net/wireless/rtl8812au/hal/phydm/phydm.mk
-else
-include $(TopDIR)/hal/phydm/phydm.mk
-endif
+include $(src)/hal/phydm/phydm.mk
 
 ########### HAL_RTL8812A_RTL8821A #################################
 ifneq ($(CONFIG_RTL8812A)_$(CONFIG_RTL8821A), n_n)
