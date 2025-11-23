@@ -16,14 +16,16 @@
 #define __RTW_RF_H_
 
 #define NumRates	(13)
-
+#define	B_MODE_RATE_NUM	(4)
+#define	G_MODE_RATE_NUM	(8)
+#define	G_MODE_BASIC_RATE_NUM	(3)
 /* slot time for 11g */
 #define SHORT_SLOT_TIME					9
 #define NON_SHORT_SLOT_TIME				20
 
 #define CENTER_CH_2G_40M_NUM	9
 #define CENTER_CH_2G_NUM		14
-#define CENTER_CH_5G_20M_NUM	28	/* 20M center channels */
+#define CENTER_CH_5G_20M_NUM	(28+16)	/* 20M center channels */
 #define CENTER_CH_5G_40M_NUM	14	/* 40M center channels */
 #define CENTER_CH_5G_80M_NUM	7	/* 80M center channels */
 #define CENTER_CH_5G_160M_NUM	3	/* 160M center channels */
@@ -41,7 +43,9 @@ u8 center_chs_2g(u8 bw, u8 id);
 
 extern u8 center_ch_5g_20m[CENTER_CH_5G_20M_NUM];
 extern u8 center_ch_5g_40m[CENTER_CH_5G_40M_NUM];
+#if 0
 extern u8 center_ch_5g_20m_40m[CENTER_CH_5G_20M_NUM + CENTER_CH_5G_40M_NUM];
+#endif
 extern u8 center_ch_5g_80m[CENTER_CH_5G_80M_NUM];
 extern u8 center_ch_5g_all[CENTER_CH_5G_ALL_NUM];
 
@@ -101,10 +105,10 @@ extern const u8 _band_to_band_cap[];
 
 
 extern const char *const _ch_width_str[];
-#define ch_width_str(bw) (((bw) >= CHANNEL_WIDTH_MAX) ? _ch_width_str[CHANNEL_WIDTH_MAX] : _ch_width_str[(bw)])
+#define ch_width_str(bw) (((bw) < CHANNEL_WIDTH_MAX) ? _ch_width_str[(bw)] : "CHANNEL_WIDTH_MAX")
 
 extern const u8 _ch_width_to_bw_cap[];
-#define ch_width_to_bw_cap(bw) (((bw) >= CHANNEL_WIDTH_MAX) ? _ch_width_to_bw_cap[CHANNEL_WIDTH_MAX] : _ch_width_to_bw_cap[(bw)])
+#define ch_width_to_bw_cap(bw) (((bw) < CHANNEL_WIDTH_MAX) ? _ch_width_to_bw_cap[(bw)] : 0)
 
 /*
  * Represent Extention Channel Offset in HT Capabilities
@@ -196,13 +200,15 @@ typedef enum _REGULATION_TXPWR_LMT {
 	TXPWR_LMT_ETSI = 3,
 	TXPWR_LMT_IC = 4,
 	TXPWR_LMT_KCC = 5,
-	TXPWR_LMT_WW = 6, /* smallest of all available limit, keep last */
+	TXPWR_LMT_ACMA = 6,
+	TXPWR_LMT_CHILE = 7,
+	TXPWR_LMT_WW = 8, /* smallest of all available limit, keep last */
 } REGULATION_TXPWR_LMT;
 
 extern const char *const _regd_str[];
 #define regd_str(regd) (((regd) > TXPWR_LMT_WW) ? _regd_str[TXPWR_LMT_WW] : _regd_str[(regd)])
 
-#ifdef CONFIG_TXPWR_LIMIT
+#if CONFIG_TXPWR_LIMIT
 struct regd_exc_ent {
 	_list list;
 	char country[2];
@@ -246,10 +252,22 @@ int rtw_ch_to_bb_gain_sel(int ch);
 void rtw_rf_set_tx_gain_offset(_adapter *adapter, u8 path, s8 offset);
 void rtw_rf_apply_tx_gain_offset(_adapter *adapter, u8 ch);
 
-u8 rtw_is_5g_band1(u8 ch);
-u8 rtw_is_5g_band2(u8 ch);
-u8 rtw_is_5g_band3(u8 ch);
-u8 rtw_is_5g_band4(u8 ch);
+/* only check channel ranges */
+#define rtw_is_2g_ch(ch) (ch >= 1 && ch <= 14)
+#define rtw_is_5g_ch(ch) ((ch) >= 36 && (ch) <= 177)
+#define rtw_is_same_band(a, b) \
+	((rtw_is_2g_ch(a) && rtw_is_2g_ch(b)) \
+	|| (rtw_is_5g_ch(a) && rtw_is_5g_ch(b)))
+
+#define rtw_is_5g_band1(ch) ((ch) >= 36 && (ch) <= 48)
+#define rtw_is_5g_band2(ch) ((ch) >= 52 && (ch) <= 64)
+#define rtw_is_5g_band3(ch) ((ch) >= 100 && (ch) <= 144)
+#define rtw_is_5g_band4(ch) ((ch) >= 149 && (ch) <= 177)
+#define rtw_is_same_5g_band(a, b) \
+	((rtw_is_5g_band1(a) && rtw_is_5g_band1(b)) \
+	|| (rtw_is_5g_band2(a) && rtw_is_5g_band2(b)) \
+	|| (rtw_is_5g_band3(a) && rtw_is_5g_band3(b)) \
+	|| (rtw_is_5g_band4(a) && rtw_is_5g_band4(b)))
 
 u8 rtw_is_dfs_range(u32 hi, u32 lo);
 u8 rtw_is_dfs_ch(u8 ch);
