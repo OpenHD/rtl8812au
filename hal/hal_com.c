@@ -12549,6 +12549,15 @@ void rtw_store_phy_info(_adapter *padapter, union recv_frame *prframe)
 	dframe_type = GetFrameType(ptr);
 	/*RTW_INFO("=>%s\n", __FUNCTION__);*/
 
+	isCCKrate = (pattrib->data_rate <= DESC_RATE11M) ? TRUE : FALSE;
+	if (!isCCKrate) {
+		for (rf_path = 0; rf_path < pHalData->NumTotalRFPath; rf_path++) {
+			/* if (!(GET_HAL_RX_PATH_BMP(padapter) & BIT(rf_path))) */
+			/*	continue; */
+			precvpriv->ofdm_snr_latest[rf_path] = p_phy_info->rx_snr[rf_path];
+		}
+	}
+
 
 	if (precvpriv->store_law_data_flag) {
 		isCCKrate = (pattrib->data_rate <= DESC_RATE11M) ? TRUE : FALSE;

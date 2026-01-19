@@ -1327,6 +1327,9 @@ s8 rtw_regsty_get_target_tx_power(
 	struct registry_priv *regsty = adapter_to_regsty(Adapter);
 	s8 value = 0;
 
+	if (Adapter->registrypriv.RegTxPowerIndexOverride)
+		value = Adapter->registrypriv.RegTxPowerIndexOverride;
+
 	if (RfPath > RF_PATH_D) {
 		RTW_PRINT("%s invalid RfPath:%d\n", __func__, RfPath);
 		return -1;
@@ -2380,6 +2383,9 @@ PHY_GetTxPowerTrackingOffset(
 	struct dm_struct			*pDM_Odm = &pHalData->odmpriv;
 	s8	offset = 0;
 
+	if (pAdapter->registrypriv.RegTxPowerIndexOverride)
+		return offset;
+
 	if (pDM_Odm->rf_calibrate_info.txpowertrack_control  == _FALSE)
 		return offset;
 
@@ -2833,6 +2839,8 @@ PHY_SetTxPowerIndexByRateArray(
 #else
 		powerIndex = phy_get_tx_power_index(pAdapter, RFPath, Rates[i], BandWidth, Channel);
 #endif
+		if (pAdapter->registrypriv.RegTxPowerIndexOverride)
+			powerIndex = (u32)pAdapter->registrypriv.RegTxPowerIndexOverride;
 		PHY_SetTxPowerIndex(pAdapter, powerIndex, RFPath, Rates[i]);
 	}
 }
@@ -2909,7 +2917,7 @@ s8 phy_get_txpwr_lmt_abs(
 	s8 ch_idx;
 	u8 is_ww_regd = 0;
 	s8 ww_lmt_val = phy_txpwr_ww_lmt_value(Adapter);
-	s8 lmt = hal_spec->txgi_max;
+	s8 lmt = MAX_POWER_INDEX;
 
 	if ((Adapter->registrypriv.RegEnableTxPowerLimit == 2 && hal_data->EEPROMRegulatory != 1) ||
 		Adapter->registrypriv.RegEnableTxPowerLimit == 0)
@@ -3010,25 +3018,27 @@ inline s8 phy_get_txpwr_lmt(_adapter *adapter
 	u8 tlrs;
 	s8 lmt = hal_spec->txgi_max;
 
-	if (IS_CCK_RATE_SECTION(rs))
-		tlrs = TXPWR_LMT_RS_CCK;
-	else if (IS_OFDM_RATE_SECTION(rs))
-		tlrs = TXPWR_LMT_RS_OFDM;
-	else if (IS_HT_RATE_SECTION(rs))
-		tlrs = TXPWR_LMT_RS_HT;
-	else if (IS_VHT_RATE_SECTION(rs))
-		tlrs = TXPWR_LMT_RS_VHT;
-	else {
-		RTW_ERR("%s invalid rs %u\n", __func__, rs);
-		rtw_warn_on(1);
-		goto exit;
-	}
+	if (lmt != MAX_POWER_INDEX) {
+		if (IS_CCK_RATE_SECTION(rs))
+			tlrs = TXPWR_LMT_RS_CCK;
+		else if (IS_OFDM_RATE_SECTION(rs))
+			tlrs = TXPWR_LMT_RS_OFDM;
+		else if (IS_HT_RATE_SECTION(rs))
+			tlrs = TXPWR_LMT_RS_HT;
+		else if (IS_VHT_RATE_SECTION(rs))
+			tlrs = TXPWR_LMT_RS_VHT;
+		else {
+			RTW_ERR("%s invalid rs %u\n", __func__, rs);
+			rtw_warn_on(1);
+			goto exit;
+		}
 
-	lmt = phy_get_txpwr_lmt_abs(adapter, regd_name, band, bw, tlrs, ntx_idx, cch, lock);
+		lmt = phy_get_txpwr_lmt_abs(adapter, regd_name, band, bw, tlrs, ntx_idx, cch, lock);
 
-	if (lmt != hal_spec->txgi_max) {
-		/* return diff value */
-		lmt = lmt - PHY_GetTxPowerByRateBase(adapter, band, rfpath, rs);
+		if (lmt != hal_spec->txgi_max) {
+			/* return diff value */
+			lmt = lmt - PHY_GetTxPowerByRateBase(adapter, band, rfpath, rs);
+		}
 	}
 
 exit:
@@ -3051,11 +3061,11 @@ PHY_GetTxPowerLimit(_adapter *adapter
 	struct hal_spec_t *hal_spec = GET_HAL_SPEC(adapter);
 	BOOLEAN no_sc = _FALSE;
 	s8 tlrs = -1, rs = -1;
-	s8 lmt = hal_spec->txgi_max;
+	s8 lmt = MAX_POWER_INDEX;
 	u8 tmp_cch = 0;
 	u8 tmp_bw;
 	u8 bw_bmp = 0;
-	s8 min_lmt = hal_spec->txgi_max;
+	s8 min_lmt = MAX_POWER_INDEX;
 	u8 final_bw = bw, final_cch = cch;
 	_irqL irqL;
 
@@ -3140,7 +3150,7 @@ PHY_GetTxPowerLimit(_adapter *adapter
 
 	_exit_critical_mutex(&rfctl->txpwr_lmt_mutex, &irqL);
 
-	if (min_lmt != hal_spec->txgi_max) {
+	if (min_lmt != MAX_POWER_INDEX) {
 		/* return diff value */
 		min_lmt = min_lmt - PHY_GetTxPowerByRateBase(adapter, band, rfpath, rs);
 	}
@@ -3182,7 +3192,7 @@ static void phy_txpwr_lmt_cck_ofdm_mt_chk(_adapter *adapter)
 		for (tlrs = TXPWR_LMT_RS_CCK; tlrs <= TXPWR_LMT_RS_OFDM; tlrs++) {
 			for (ntx_idx = RF_1TX; ntx_idx < MAX_TX_COUNT; ntx_idx++) {
 				for (channel = 0; channel < CENTER_CH_2G_NUM; ++channel) {
-					if (ent->lmt_2g[CHANNEL_WIDTH_20][tlrs][channel][ntx_idx] != hal_spec->txgi_max) {
+					if (ent->lmt_2g[CHANNEL_WIDTH_20][tlrs][channel][ntx_idx] != MAX_POWER_INDEX) {
 						if (tlrs == TXPWR_LMT_RS_CCK)
 							rfctl->txpwr_lmt_2g_cck_ofdm_state |= TXPWR_LMT_HAS_CCK_1T << ntx_idx;
 						else
@@ -3207,7 +3217,7 @@ static void phy_txpwr_lmt_cck_ofdm_mt_chk(_adapter *adapter)
 		/* check 5G OFDM state*/
 		for (ntx_idx = RF_1TX; ntx_idx < MAX_TX_COUNT; ntx_idx++) {
 			for (channel = 0; channel < CENTER_CH_5G_ALL_NUM; ++channel) {
-				if (ent->lmt_5g[CHANNEL_WIDTH_20][TXPWR_LMT_RS_OFDM - 1][channel][ntx_idx] != hal_spec->txgi_max) {
+				if (ent->lmt_5g[CHANNEL_WIDTH_20][TXPWR_LMT_RS_OFDM - 1][channel][ntx_idx] != MAX_POWER_INDEX) {
 					rfctl->txpwr_lmt_5g_cck_ofdm_state |= TXPWR_LMT_HAS_OFDM_1T << ntx_idx;
 					break;
 				}
@@ -3266,7 +3276,7 @@ static void phy_txpwr_lmt_cross_ref_ht_vht(_adapter *adapter)
 
 						for (ntx_idx = RF_1TX; ntx_idx < MAX_TX_COUNT; ntx_idx++) {
 
-							if (ent->lmt_5g[bw][ref_tlrs - 1][channel][ntx_idx] == hal_spec->txgi_max)
+							if (ent->lmt_5g[bw][ref_tlrs - 1][channel][ntx_idx] == MAX_POWER_INDEX)
 								continue;
 
 							if (tlrs == TXPWR_LMT_RS_HT)
@@ -3276,7 +3286,7 @@ static void phy_txpwr_lmt_cross_ref_ht_vht(_adapter *adapter)
 							else
 								continue;
 
-							if (ent->lmt_5g[bw][tlrs - 1][channel][ntx_idx] != hal_spec->txgi_max)
+							if (ent->lmt_5g[bw][tlrs - 1][channel][ntx_idx] != MAX_POWER_INDEX)
 								continue;
 
 							if (tlrs == TXPWR_LMT_RS_HT && ref_tlrs == TXPWR_LMT_RS_VHT)
@@ -3451,7 +3461,7 @@ void phy_txpwr_limit_bandwidth_chk(_adapter *adapter)
 									_RTW_PRINT_SEL(RTW_DBGDUMP, "%03u ", cch_by_bw[bw_pos]);
 								_RTW_PRINT_SEL(RTW_DBGDUMP, "limit:");
 								for (bw_pos = bw; bw_pos < CHANNEL_WIDTH_160; bw_pos--) {
-									if (lmt[bw_pos] == hal_spec->txgi_max)
+									if (lmt[bw_pos] == MAX_POWER_INDEX)
 										_RTW_PRINT_SEL(RTW_DBGDUMP, "N/A ");
 									else if (lmt[bw_pos] > -hal_spec->txgi_pdbm && lmt[bw_pos] < 0) /* -1 < value < 0 */
 										_RTW_PRINT_SEL(RTW_DBGDUMP, "-0.%d", (rtw_abs(lmt[bw_pos]) % hal_spec->txgi_pdbm) * 100 / hal_spec->txgi_pdbm);
@@ -3480,7 +3490,7 @@ void phy_txpwr_limit_bandwidth_chk(_adapter *adapter)
 									_RTW_PRINT_SEL(RTW_DBGDUMP, "%03u ", cch_by_bw[bw_pos]);
 								_RTW_PRINT_SEL(RTW_DBGDUMP, "limit:");
 								for (bw_pos = bw; bw_pos < CHANNEL_WIDTH_160; bw_pos--) {
-									if (lmt[bw_pos] == hal_spec->txgi_max)
+									if (lmt[bw_pos] == MAX_POWER_INDEX)
 										_RTW_PRINT_SEL(RTW_DBGDUMP, "N/A ");
 									else if (lmt[bw_pos] > -hal_spec->txgi_pdbm && lmt[bw_pos] < 0) /* -1 < value < 0 */
 										_RTW_PRINT_SEL(RTW_DBGDUMP, "-0.%d", (rtw_abs(lmt[bw_pos]) % hal_spec->txgi_pdbm) * 100 / hal_spec->txgi_pdbm);
@@ -3599,6 +3609,8 @@ phy_set_tx_power_limit(
 			powerLimit =  ww_lmt_val + 1;
 	}
 
+	powerLimit = powerLimit > MAX_POWER_INDEX ? MAX_POWER_INDEX : powerLimit;
+
 	if (eqNByte(RateSection, (u8 *)("CCK"), 3))
 		tlrs = TXPWR_LMT_RS_CCK;
 	else if (eqNByte(RateSection, (u8 *)("OFDM"), 4))
@@ -3694,6 +3706,8 @@ PHY_SetTxPowerIndex(
 	IN	u8				Rate
 )
 {
+	if (pAdapter->registrypriv.RegTxPowerIndexOverride)
+		PowerIndex = (u32)pAdapter->registrypriv.RegTxPowerIndexOverride;
 	rtw_hal_set_tx_power_index(pAdapter, PowerIndex, RFPath, Rate);
 }
 

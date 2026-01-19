@@ -15,6 +15,8 @@
 #ifndef __HAL_COM_PHYCFG_H__
 #define __HAL_COM_PHYCFG_H__
 
+#define MAX_POWER_INDEX		0x3F
+
 #define		PathA                     			0x0	/* Useless */
 #define		PathB			0x1
 #define		PathC			0x2

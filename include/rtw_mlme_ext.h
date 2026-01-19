@@ -330,6 +330,10 @@ struct mlme_ext_info {
 	u16	capability;
 	u8	assoc_AP_vendor;
 	u8	slotTime;
+	u8	slottime_override;
+	u8	slottime_override_en;
+	u8	sifs_override;
+	u8	sifs_override_en;
 	u8	preamble_mode;
 	u8	WMM_enable;
 	u8	ERP_enable;

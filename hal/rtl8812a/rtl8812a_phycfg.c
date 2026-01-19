@@ -592,10 +592,16 @@ PHY_GetTxPowerIndex_8812A(
 	by_rate_diff = by_rate_diff > limit ? limit : by_rate_diff;
 	power_idx = base_idx + by_rate_diff + tpt_offset + extra_bias + transmit_power_boost;
 
+	if (pAdapter->registrypriv.RegTxPowerIndexOverride)
+		power_idx = pAdapter->registrypriv.RegTxPowerIndexOverride;
+
 	if (transmit_power_override != 0)
 		power_idx = transmit_power_override;
 	if (power_idx < 1)
 		power_idx = 1;
+
+	if (power_idx > MAX_POWER_INDEX)
+		power_idx = MAX_POWER_INDEX;
 
 	if (power_idx < 0)
 		power_idx = 0;
@@ -624,6 +630,9 @@ PHY_SetTxPowerIndex_8812A(
 )
 {
 	HAL_DATA_TYPE		*pHalData	= GET_HAL_DATA(Adapter);
+
+	if (Adapter->registrypriv.RegTxPowerIndexOverride)
+		PowerIndex = (u32)Adapter->registrypriv.RegTxPowerIndexOverride;
 
 	/* <20120928, Kordan> A workaround in 8812A/8821A testchip, to fix the bug of odd Tx power indexes. */
 	if ((PowerIndex % 2 == 1) && IS_HARDWARE_TYPE_JAGUAR(Adapter) && IS_TEST_CHIP(pHalData->version_id))

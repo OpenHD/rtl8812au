@@ -328,6 +328,9 @@ struct registry_priv {
 	u8 pll_ref_clk_sel;
 
 	/* define for tx power adjust */
+	u8	RegTxPowerIndexOverride;
+	int32_t openhd_override_channel;
+	int32_t openhd_override_channel_width;
 #if CONFIG_TXPWR_LIMIT
 	u8	RegEnableTxPowerLimit;
 #endif
@@ -1793,5 +1796,8 @@ int rtw_suspend_free_assoc_resource(_adapter *padapter);
 	#include <pci_ops.h>
 	#include <pci_hal.h>
 #endif
+
+int get_openhd_override_channel(void);
+int get_openhd_override_channel_width(void);
 
 #endif /* __DRV_TYPES_H__ */
