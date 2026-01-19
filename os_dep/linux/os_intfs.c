@@ -16,6 +16,7 @@
 
 #include <drv_types.h>
 #include <hal_data.h>
+#include <hal_com_phycfg.h>
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 8, 0))
 #define strlcpy strscpy
@@ -129,6 +130,18 @@ module_param(rtw_usb_rxagg_mode, int, 0644);
 
 int rtw_dynamic_agg_enable = 1;
 module_param(rtw_dynamic_agg_enable, int, 0644);
+
+int rtw_tx_pwr_idx_override = 0;
+module_param(rtw_tx_pwr_idx_override, int, 0644);
+MODULE_PARM_DESC(rtw_tx_pwr_idx_override, "0-63 int value to force-set all power index values to");
+
+int openhd_override_channel = 0;
+module_param(openhd_override_channel, int, 0644);
+MODULE_PARM_DESC(openhd_override_channel, "OpenHD easy (CRDA workaround)");
+
+int openhd_override_channel_width = 0;
+module_param(openhd_override_channel_width, int, 0644);
+MODULE_PARM_DESC(openhd_override_channel_width, "OpenHD easy (CRDA workaround)");
 
 /* set log level when inserting driver module, default log level is _DRV_INFO_ = 4,
 * please refer to "How_to_set_driver_debug_log_level.doc" to set the available level.
@@ -974,6 +987,16 @@ uint loadparam(_adapter *padapter)
 	registry_par->acm_method = (u8)rtw_acm_method;
 	registry_par->usb_rxagg_mode = (u8)rtw_usb_rxagg_mode;
 	registry_par->dynamic_agg_enable = (u8)rtw_dynamic_agg_enable;
+
+	if (rtw_tx_pwr_idx_override > MAX_POWER_INDEX)
+		rtw_tx_pwr_idx_override = MAX_POWER_INDEX;
+	registry_par->RegTxPowerIndexOverride = (u8)rtw_tx_pwr_idx_override;
+	RTW_INFO("OpenHD:rtw_tx_pwr_idx_override:%d\n",(int)rtw_tx_pwr_idx_override);
+
+	registry_par->openhd_override_channel = openhd_override_channel;
+	registry_par->openhd_override_channel_width = openhd_override_channel_width;
+	RTW_WARN("OpenHD: openhd_override_channel %d, openhd_override_channel_width: %d",
+			 registry_par->openhd_override_channel,registry_par->openhd_override_channel_width);
 
 	/* WMM */
 	registry_par->wmm_enable = (u8)rtw_wmm_enable;
@@ -5190,3 +5213,11 @@ int rtw_vendor_ie_set_api(struct net_device *dev, char *extra)
 EXPORT_SYMBOL(rtw_vendor_ie_set_api);
 
 #endif
+
+int get_openhd_override_channel(void){
+    return openhd_override_channel;
+}
+
+int get_openhd_override_channel_width(void){
+    return openhd_override_channel_width;
+}

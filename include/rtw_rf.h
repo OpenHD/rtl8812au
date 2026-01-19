@@ -25,9 +25,9 @@
 
 #define CENTER_CH_2G_40M_NUM	9
 #define CENTER_CH_2G_NUM		14
-#define CENTER_CH_5G_20M_NUM	(28+16)	/* 20M center channels */
-#define CENTER_CH_5G_40M_NUM	14	/* 40M center channels */
-#define CENTER_CH_5G_80M_NUM	7	/* 80M center channels */
+#define CENTER_CH_5G_20M_NUM	(28+16+19)	/* 20M center channels, added 19 for 5905~6265 MHz */
+#define CENTER_CH_5G_40M_NUM	(14+9)	/* 40M center channels */
+#define CENTER_CH_5G_80M_NUM	(7+4)	/* 80M center channels */
 #define CENTER_CH_5G_160M_NUM	3	/* 160M center channels */
 #define CENTER_CH_5G_ALL_NUM	(CENTER_CH_5G_20M_NUM + CENTER_CH_5G_40M_NUM + CENTER_CH_5G_80M_NUM)
 

@@ -1008,6 +1008,15 @@ Hal_ReadThermalMeter_8812A(
 	}
 
 	/* pHalData->ThermalMeter[0] = pHalData->eeprom_thermal_meter;	 */
+
+	/* Initialize eeprom_thermal_meter_multi for all paths with the single available value for now */
+	/* 8812A usually has one thermal meter, unlike 8822E which has per-path */
+	{
+		int i;
+		for (i = 0; i < MAX_RF_PATH; i++)
+			pHalData->eeprom_thermal_meter_multi[i] = pHalData->eeprom_thermal_meter;
+	}
+
 	RTW_INFO("ThermalMeter = 0x%x\n", pHalData->eeprom_thermal_meter);
 }
 

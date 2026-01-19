@@ -216,6 +216,13 @@ static struct ieee80211_channel rtw_5ghz_a_channels[MAX_CHANNEL_NUM_5G] = {
 
 	CHAN5G(149, 0),	CHAN5G(153, 0),	CHAN5G(157, 0),	CHAN5G(161, 0),
 	CHAN5G(165, 0),	CHAN5G(169, 0),	CHAN5G(173, 0),	CHAN5G(177, 0),
+
+	// unlocked 5905~6265 MHz
+	CHAN5G(181, 0),	CHAN5G(185, 0),	CHAN5G(189, 0),	CHAN5G(193, 0),
+	CHAN5G(197, 0),	CHAN5G(201, 0),	CHAN5G(205, 0),	CHAN5G(209, 0),
+	CHAN5G(213, 0),	CHAN5G(217, 0),	CHAN5G(221, 0),	CHAN5G(225, 0),
+	CHAN5G(229, 0), CHAN5G(233, 0), CHAN5G(237, 0), CHAN5G(241, 0),
+	CHAN5G(245, 0), CHAN5G(249, 0), CHAN5G(253, 0),
 };
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29))
@@ -4274,25 +4281,33 @@ static int cfg80211_rtw_set_txpower(struct wiphy *wiphy,
 #endif
 {
 
-_adapter *padapter = wiphy_to_adapter(wiphy);
-HAL_DATA_TYPE   *pHalData = GET_HAL_DATA(padapter);
-int value;
+	_adapter *padapter = wiphy_to_adapter(wiphy);
+	HAL_DATA_TYPE   *pHalData = GET_HAL_DATA(padapter);
+	int value;
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36)) || defined(COMPAT_KERNEL_RELEASE)
 	value = mbm/100;
 #else
 	value = dbm;
 #endif
+	RTW_INFO("OpenHD:cfg80211_rtw_set_txpower with %d mBm %d (?dBm?)",(int)mbm,(int)value);
 
-if(value < 0)
-	value = 0;
-if(value > 40)
-	value = 40;
+	if(value < 0)
+		value = 0;
+	if(value > 40)
+		value = 40;
 
-if(type == NL80211_TX_POWER_FIXED) {
-	pHalData->CurrentTxPwrIdx = value;
-	rtw_hal_set_tx_power_level(padapter, pHalData->current_channel);
-} else
-	return -EOPNOTSUPP;
+	if(type == NL80211_TX_POWER_FIXED) {
+		RTW_INFO("OpenHD:cfg80211_rtw_set_txpower NL80211_TX_POWER_FIXED");
+		if(mbm>=0 && mbm<=63){
+			padapter->registrypriv.RegTxPowerIndexOverride = mbm;
+			RTW_WARN("OpenHD:interpreting %d mBm as tx power index override",(int)mbm);
+		}
+		RTW_INFO("OpenHD:Tx power index override is %d",padapter->registrypriv.RegTxPowerIndexOverride);
+
+		pHalData->CurrentTxPwrIdx = value;
+		rtw_hal_set_tx_power_level(padapter, pHalData->current_channel);
+	} else
+		return -EOPNOTSUPP;
 
 #if 0
 	struct iwm_priv *iwm = wiphy_to_iwm(wiphy);
@@ -4338,7 +4353,11 @@ static int cfg80211_rtw_get_txpower(struct wiphy *wiphy,
 
 	RTW_INFO("%s\n", __func__);
 
-	*dbm = pHalData->CurrentTxPwrIdx;
+	if(padapter->registrypriv.RegTxPowerIndexOverride){
+		*dbm = padapter->registrypriv.RegTxPowerIndexOverride;
+	}else{
+		*dbm = pHalData->CurrentTxPwrIdx;
+	}
 
 	return 0;
 }
@@ -6406,6 +6425,24 @@ static int cfg80211_rtw_set_monitor_channel(struct wiphy *wiphy
 #endif
 	RTW_INFO(FUNC_ADPT_FMT" ch:%d bw:%d, offset:%d\n"
 		, FUNC_ADPT_ARG(padapter), target_channal, target_width, target_offset);
+
+	// OpenHD channel via module param
+	// update if module param has been updated
+	padapter->registrypriv.openhd_override_channel=get_openhd_override_channel();
+	padapter->registrypriv.openhd_override_channel_width=get_openhd_override_channel_width();
+
+	RTW_WARN("OpenHD: override %d %d",padapter->registrypriv.openhd_override_channel,padapter->registrypriv.openhd_override_channel_width);
+	{
+		if(padapter->registrypriv.openhd_override_channel){
+			target_channal=padapter->registrypriv.openhd_override_channel;
+			RTW_WARN("OpenHD: using openhd_override_channel");
+		}
+		if(padapter->registrypriv.openhd_override_channel_width){
+			target_width=padapter->registrypriv.openhd_override_channel_width;
+			RTW_WARN("OpenHD: using openhd_override_channel_width");
+		}
+	}
+
 
 	rtw_set_chbw_cmd(padapter, target_channal, target_width, target_offset, RTW_CMDF_WAIT_ACK);
 
