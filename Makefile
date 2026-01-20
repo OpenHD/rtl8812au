@@ -189,12 +189,12 @@ endif
 
 ifeq ($(CONFIG_RTL8812A)_$(CONFIG_RTL8821A)_$(CONFIG_RTL8814A), y_y_y)
 
-EXTRA_CFLAGS += -DDRV_NAME=\"rtl88XXau\"
+EXTRA_CFLAGS += -DDRV_NAME=\"rtl88xxau_ohd\"
 ifeq ($(CONFIG_USB_HCI), y)
-USER_MODULE_NAME = 88XXau
+USER_MODULE_NAME = rtl88xxau_ohd
 endif
 else
-EXTRA_CFLAGS += -DDRV_NAME=\"rtl8812au\"
+EXTRA_CFLAGS += -DDRV_NAME=\"rtl88xxau_ohd\"
 endif
 
 _OS_INTFS_FILES :=	os_dep/osdep_service.o \
@@ -241,7 +241,7 @@ ifneq ($(CONFIG_RTL8812A)_$(CONFIG_RTL8821A), n_n)
 
 RTL871X = rtl8812a
 ifeq ($(CONFIG_USB_HCI), y)
-MODULE_NAME = 8812au
+MODULE_NAME = rtl88xxau_ohd
 endif
 
 _HAL_INTFS_FILES +=  hal/HalPwrSeqCmd.o \
@@ -257,9 +257,9 @@ _HAL_INTFS_FILES +=	hal/$(RTL871X)/$(RTL871X)_hal_init.o \
 			hal/$(RTL871X)/$(RTL871X)_rxdesc.o \
 			hal/$(RTL871X)/$(RTL871X)_cmd.o \
 			hal/$(RTL871X)/$(HCI_NAME)/$(HCI_NAME)_halinit.o \
-			hal/$(RTL871X)/$(HCI_NAME)/rtl$(MODULE_NAME)_led.o \
-			hal/$(RTL871X)/$(HCI_NAME)/rtl$(MODULE_NAME)_xmit.o \
-			hal/$(RTL871X)/$(HCI_NAME)/rtl$(MODULE_NAME)_recv.o
+			hal/$(RTL871X)/$(HCI_NAME)/rtl8812au_led.o \
+			hal/$(RTL871X)/$(HCI_NAME)/rtl8812au_xmit.o \
+			hal/$(RTL871X)/$(HCI_NAME)/rtl8812au_recv.o
 
 ifeq ($(CONFIG_SDIO_HCI), y)
 _HAL_INTFS_FILES += hal/$(RTL871X)/$(HCI_NAME)/$(HCI_NAME)_ops.o
@@ -336,7 +336,7 @@ CONFIG_MP_VHT_HW_TX_MODE = n
 ##########################################
 RTL871X = rtl8814a
 ifeq ($(CONFIG_USB_HCI), y)
-MODULE_NAME = 8814au
+MODULE_NAME = rtl88xxau_ohd
 endif
 
 EXTRA_CFLAGS += -DCONFIG_RTL8814A
@@ -356,9 +356,9 @@ _HAL_INTFS_FILES +=	hal/$(RTL871X)/$(RTL871X)_hal_init.o \
 
 _HAL_INTFS_FILES +=	\
 			hal/$(RTL871X)/$(HCI_NAME)/$(HCI_NAME)_halinit.o \
-			hal/$(RTL871X)/$(HCI_NAME)/rtl$(MODULE_NAME)_led.o \
-			hal/$(RTL871X)/$(HCI_NAME)/rtl$(MODULE_NAME)_xmit.o \
-			hal/$(RTL871X)/$(HCI_NAME)/rtl$(MODULE_NAME)_recv.o
+			hal/$(RTL871X)/$(HCI_NAME)/rtl8814au_led.o \
+			hal/$(RTL871X)/$(HCI_NAME)/rtl8814au_xmit.o \
+			hal/$(RTL871X)/$(HCI_NAME)/rtl8814au_recv.o
 
 ifeq ($(CONFIG_SDIO_HCI), y)
 _HAL_INTFS_FILES += hal/$(RTL871X)/$(HCI_NAME)/$(HCI_NAME)_ops.o
@@ -1820,6 +1820,6 @@ ifeq ($(NO_SKIP_SIGN), y)
 else
 	echo "Skipping key creation"
 endif
-	@$(KSRC)/scripts/sign-file sha256 MOK.priv MOK.der 88XXau.ko
+	@$(KSRC)/scripts/sign-file sha256 MOK.priv MOK.der $(MODULE_NAME).ko
 
 sign-install: all sign install
