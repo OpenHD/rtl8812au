@@ -331,7 +331,7 @@ get_delta_swing_table_8821a(
 			*temperature_up_b   = cali_info->delta_swing_table_idx_2gb_p;
 			*temperature_down_b = cali_info->delta_swing_table_idx_2gb_n;
 		}
-	} else if (36 <= channel && channel <= 64) {
+	} else if (16 <= channel && channel <= 96) {
 		*temperature_up_a   = cali_info->delta_swing_table_idx_5ga_p[0];
 		*temperature_down_a = cali_info->delta_swing_table_idx_5ga_n[0];
 		*temperature_up_b   = cali_info->delta_swing_table_idx_5gb_p[0];
@@ -341,7 +341,7 @@ get_delta_swing_table_8821a(
 		*temperature_down_a = cali_info->delta_swing_table_idx_5ga_n[1];
 		*temperature_up_b   = cali_info->delta_swing_table_idx_5gb_p[1];
 		*temperature_down_b = cali_info->delta_swing_table_idx_5gb_n[1];
-	} else if (149 <= channel && channel <= 177) {
+	} else if (149 <= channel && channel <= 253) {
 		*temperature_up_a   = cali_info->delta_swing_table_idx_5ga_p[2];
 		*temperature_down_a = cali_info->delta_swing_table_idx_5ga_n[2];
 		*temperature_up_b   = cali_info->delta_swing_table_idx_5gb_p[2];

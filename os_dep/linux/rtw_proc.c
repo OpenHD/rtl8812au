@@ -750,10 +750,19 @@ static int proc_get_thermal_state(struct seq_file *m, void *v)
 
 static int proc_get_monitor_chan_override(struct seq_file *m, void *v)
 {
-	RTW_PRINT_SEL(m, "Unlock Center Frequency\n");
+	RTW_PRINT_SEL(m, "Use 10MHz Bandwidth & Unlock Illegal Frequency from 5080MHz to 6165MHz\n");
+	RTW_PRINT_SEL(m, "Github: libc0607/rtl88x2eu-20230815\n");
+	RTW_PRINT_SEL(m, "\n");
 	RTW_PRINT_SEL(m, "Usage: echo \"<chan> <bw>\" > monitor_chan_override\n");
-	RTW_PRINT_SEL(m, "chan:	16~253, freq=channel*5+5000\n");
-	RTW_PRINT_SEL(m, "bw:	10/20/40/80, MHz. Not determing the bandwidth, but should be the same as 'iw'\n");
+	RTW_PRINT_SEL(m, "chan:	16~253, ((channel-16) mod 4 == 0) || ((channel-149) mod 4 == 0); freq=channel*5+5000\n");
+	RTW_PRINT_SEL(m, "bw:	10-10MHz, 20-20MHz\n");
+	RTW_PRINT_SEL(m, "\n");
+	RTW_PRINT_SEL(m, "e.g.  To transmit in 6005MHz with 10MHz BW, use \n");
+	RTW_PRINT_SEL(m, "\techo \"201 10\" > monitor_chan_override\n");
+	RTW_PRINT_SEL(m, "\n");
+	RTW_PRINT_SEL(m, "Disclaimer: Some chip may not lock on some frequency. There's no guarantee on performance. \n");
+	RTW_PRINT_SEL(m, "The unlocked frequency may damage your hardware.\n");
+	RTW_PRINT_SEL(m, "You should obey the law, and use it at your own risk.\n");
 	return 0;
 }
 
@@ -763,7 +772,7 @@ static ssize_t proc_set_monitor_chan_override(struct file *file, const char __us
 	_adapter *padapter = (_adapter *)rtw_netdev_priv(dev);
 	char tmp[32];
 	u32 chan = 149;
-	u32 bw = 20, bw_cmd = 0;
+	u32 bw = 20;
 	u32 offset = 0;
 
 	if (!padapter)
@@ -785,21 +794,13 @@ static ssize_t proc_set_monitor_chan_override(struct file *file, const char __us
 			return count;
 	}
 
-	if ((bw != 10) && (bw != 20) && (bw != 40) && (bw != 80)) {
+	if ((bw != 10) && (bw != 20)) {
 		RTW_INFO("monitor_chan_override Bandwidth error: %u\n", bw);
 		return count;
 	}
 
-	switch (bw) {
-		case 10: bw_cmd = 6; break;
-		case 20: bw_cmd = 0; break;
-		case 40: bw_cmd = 1; break;
-		case 80: bw_cmd = 2; break;
-		default: bw_cmd = 0; break;
-	}
-
 	RTW_INFO("Write to monitor_chan_override: chan=%d, bw=%d, offset=%d\n", chan, bw, offset);
-	rtw_set_chbw_cmd(padapter, (u8)chan, bw_cmd, (u8)offset, RTW_CMDF_WAIT_ACK);
+	rtw_set_chbw_cmd(padapter, (u8)chan, (bw == 10) ? 6 : 0, (u8)offset, RTW_CMDF_WAIT_ACK);
 
 	return count;
 }
@@ -2341,7 +2342,7 @@ static void rtw_set_tx_bw_mode(struct _ADAPTER *adapter, u8 bw_mode)
 
 	if ((MLME_STATE(adapter) & WIFI_ASOC_STATE)
 		&& ((mlmeext->cur_channel <= 14 && BW_MODE_2G(bw_mode) != ADAPTER_TX_BW_2G(adapter))
-			|| (mlmeext->cur_channel >= 36 && BW_MODE_5G(bw_mode) != ADAPTER_TX_BW_5G(adapter)))
+			|| (mlmeext->cur_channel >= 16 && BW_MODE_5G(bw_mode) != ADAPTER_TX_BW_5G(adapter)))
 	) {
 		/* RA mask update needed */
 		update = _TRUE;

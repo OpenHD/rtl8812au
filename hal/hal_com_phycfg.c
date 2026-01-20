@@ -1102,7 +1102,7 @@ bypass_2g:
 				continue;
 
 			upper = pwr_info_5g->IndexBW40_Base[rfpath][group];
-			lower = pwr_info_5g->IndexBW40_Base[rfpath][group + 1];
+			lower = pwr_info_5g->IndexBW40_Base[rfpath][group + 1 >= MAX_CHNL_GROUP_5G ? group : group + 1];
 			hal_data->Index5G_BW80_Base[rfpath][ch_idx] = (upper + lower) / 2;
 		}
 
@@ -1219,7 +1219,7 @@ void dump_hal_txpwr_info_5g(void *sel, _adapter *adapter, u8 rfpath_num, u8 max_
 	RTW_PRINT_SEL(sel, "BW40-1S base:\n");
 	do {
 		#define DUMP_5G_BW40_BASE_SECTION_NUM 3
-		u8 end[DUMP_5G_BW40_BASE_SECTION_NUM] = {64, 144, 177};
+		u8 end[DUMP_5G_BW40_BASE_SECTION_NUM] = {64, 144, 253};
 
 		RTW_PRINT_SEL(sel, "%4s ", "");
 		for (ch_idx = ch_idx_s; ch_idx < CENTER_CH_5G_ALL_NUM; ch_idx++) {

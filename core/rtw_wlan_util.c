@@ -490,12 +490,18 @@ u8 rtw_get_offset_by_chbw(u8 ch, u8 bw, u8 *r_offset)
 	else if (ch == 14) {
 		valid = 0; /* ch14 doesn't support 40MHz bandwidth */
 		goto exit;
-	} else if (ch >= 36 && ch <= 177) {
+	} else if (ch >= 16 && ch <= 253) {
 		switch (ch) {
+		case 20:
+		case 28:
 		case 36:
 		case 44:
 		case 52:
 		case 60:
+		case 68:
+		case 76:
+		case 84:
+		case 92:
 		case 100:
 		case 108:
 		case 116:
@@ -506,12 +512,26 @@ u8 rtw_get_offset_by_chbw(u8 ch, u8 bw, u8 *r_offset)
 		case 157:
 		case 165:
 		case 173:
+		case 181:
+		case 189:
+		case 197:
+		case 205:
+		case 213:
+		case 221:
+		case 237:
+		case 245:
 			offset = HAL_PRIME_CHNL_OFFSET_LOWER;
 			break;
+		case 24:
+		case 32:
 		case 40:
 		case 48:
 		case 56:
 		case 64:
+		case 72:
+		case 80:
+		case 88:
+		case 96:
 		case 104:
 		case 112:
 		case 120:
@@ -522,6 +542,14 @@ u8 rtw_get_offset_by_chbw(u8 ch, u8 bw, u8 *r_offset)
 		case 161:
 		case 169:
 		case 177:
+		case 185:
+		case 193:
+		case 201:
+		case 209:
+		case 217:
+		case 225:
+		case 241:
+		case 249:
 			offset = HAL_PRIME_CHNL_OFFSET_UPPER;
 			break;
 		default:
@@ -542,10 +570,16 @@ u8 rtw_get_center_ch(u8 channel, u8 chnl_bw, u8 chnl_offset)
 	u8 center_ch = channel;
 
 	if (chnl_bw == CHANNEL_WIDTH_80) {
-		if (channel == 36 || channel == 40 || channel == 44 || channel == 48)
+		if (channel == 16 || channel == 20 || channel == 24 || channel == 28 || channel == 32)
+			center_ch = 26;
+		else if (channel == 36 || channel == 40 || channel == 44 || channel == 48)
 			center_ch = 42;
 		else if (channel == 52 || channel == 56 || channel == 60 || channel == 64)
 			center_ch = 58;
+		else if (channel == 68 || channel == 72 || channel == 76 || channel == 80)
+			center_ch = 74;
+		else if (channel == 84 || channel == 88 || channel == 92 || channel == 96)
+			center_ch = 90;
 		else if (channel == 100 || channel == 104 || channel == 108 || channel == 112)
 			center_ch = 106;
 		else if (channel == 116 || channel == 120 || channel == 124 || channel == 128)
@@ -556,6 +590,14 @@ u8 rtw_get_center_ch(u8 channel, u8 chnl_bw, u8 chnl_offset)
 			center_ch = 155;
 		else if (channel == 165 || channel == 169 || channel == 173 || channel == 177)
 			center_ch = 171;
+		else if (channel == 181 || channel == 185 || channel == 189 || channel == 193)
+			center_ch = 187;
+		else if (channel == 197 || channel == 201 || channel == 205 || channel == 209)
+			center_ch = 203;
+		else if (channel == 213 || channel == 217 || channel == 221 || channel == 225)
+			center_ch = 219;
+		else if (channel == 229 || channel == 233 || channel == 237 || channel == 241)
+			center_ch = 235;
 		else if (channel <= 14)
 			center_ch = 7;
 	} else if (chnl_bw == CHANNEL_WIDTH_40) {

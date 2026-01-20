@@ -201,14 +201,17 @@ static struct ieee80211_channel rtw_2ghz_channels[MAX_CHANNEL_NUM_2G] = {
 
 /* from center_ch_5g_20m */
 static struct ieee80211_channel rtw_5ghz_a_channels[MAX_CHANNEL_NUM_5G] = {
-	CHAN5G(15, 0),  CHAN5G(16, 0),  CHAN5G(17, 0),  CHAN5G(18, 0),
-	CHAN5G(20, 0),  CHAN5G(24, 0),  CHAN5G(28, 0),  CHAN5G(32, 0),
+	// unlocked 5080~5160 MHz
+	CHAN5G(16, 0),
+	CHAN5G(20, 0),	CHAN5G(24, 0),	CHAN5G(28, 0),	CHAN5G(32, 0),
 
 	CHAN5G(36, 0),	CHAN5G(40, 0),	CHAN5G(44, 0),	CHAN5G(48, 0),
 
 	CHAN5G(52, 0),	CHAN5G(56, 0),	CHAN5G(60, 0),	CHAN5G(64, 0),
-	CHAN5G(68, 0),  CHAN5G(72, 0),  CHAN5G(76, 0),  CHAN5G(80, 0),
-	CHAN5G(84, 0),  CHAN5G(88, 0),  CHAN5G(92, 0),  CHAN5G(96, 0),
+
+	// unlocked 5340~5480 MHz
+	CHAN5G(68, 0),	CHAN5G(72, 0),	CHAN5G(76, 0),	CHAN5G(80, 0),
+	CHAN5G(84, 0),	CHAN5G(88, 0),	CHAN5G(92, 0),	CHAN5G(96, 0),
 
 	CHAN5G(100, 0),	CHAN5G(104, 0),	CHAN5G(108, 0),	CHAN5G(112, 0),
 	CHAN5G(116, 0),	CHAN5G(120, 0),	CHAN5G(124, 0),	CHAN5G(128, 0),
@@ -359,6 +362,12 @@ static u8 rtw_chbw_to_cfg80211_chan_def(struct wiphy *wiphy, struct cfg80211_cha
 		chdef->width = NL80211_CHAN_WIDTH_80;
 	else if (bw == CHANNEL_WIDTH_160)
 		chdef->width = NL80211_CHAN_WIDTH_160;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0))
+	else if (bw == CHANNEL_WIDTH_5)
+		chdef->width = NL80211_CHAN_WIDTH_5;
+	else if (bw == CHANNEL_WIDTH_10)
+		chdef->width = NL80211_CHAN_WIDTH_10;
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0)) */
 	else {
 		rtw_warn_on(1);
 		goto exit;
@@ -422,7 +431,17 @@ static void rtw_get_chbw_from_cfg80211_chan_def(struct cfg80211_chan_def *chdef,
 	case NL80211_CHAN_WIDTH_80P80:
 	#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0))
 	case NL80211_CHAN_WIDTH_5:
+		*ht = 0;
+		*bw = CHANNEL_WIDTH_5;
+		*offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
+		*ch = chan->hw_value;
+		break;
 	case NL80211_CHAN_WIDTH_10:
+		*ht = 0;
+		*bw = CHANNEL_WIDTH_10;
+		*offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
+		*ch = chan->hw_value;
+		break;
 	#endif
 	default:
 		*ht = 0;
@@ -4284,6 +4303,9 @@ static int cfg80211_rtw_set_txpower(struct wiphy *wiphy,
 	_adapter *padapter = wiphy_to_adapter(wiphy);
 	HAL_DATA_TYPE   *pHalData = GET_HAL_DATA(padapter);
 	int value;
+	int ret = 0;
+	int openhd_override_tx_power_mbm = 0;
+	bool update_tx_power = false;
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36)) || defined(COMPAT_KERNEL_RELEASE)
 	value = mbm/100;
 #else
@@ -4296,18 +4318,43 @@ static int cfg80211_rtw_set_txpower(struct wiphy *wiphy,
 	if(value > 40)
 		value = 40;
 
-	if(type == NL80211_TX_POWER_FIXED) {
+	if (type == NL80211_TX_POWER_FIXED) {
 		RTW_INFO("OpenHD:cfg80211_rtw_set_txpower NL80211_TX_POWER_FIXED");
-		if(mbm>=0 && mbm<=63){
+		if (mbm >= 0 && mbm <= 63) {
 			padapter->registrypriv.RegTxPowerIndexOverride = mbm;
 			RTW_WARN("OpenHD:interpreting %d mBm as tx power index override",(int)mbm);
 		}
 		RTW_INFO("OpenHD:Tx power index override is %d",padapter->registrypriv.RegTxPowerIndexOverride);
 
 		pHalData->CurrentTxPwrIdx = value;
+		update_tx_power = true;
+	} else if (type == NL80211_TX_POWER_LIMITED) {
+		pHalData->CurrentTxPwrIdx = value;
+		update_tx_power = true;
+	} else if (type == NL80211_TX_POWER_AUTOMATIC) {
+		ret = 0;
+	} else {
+		ret = -EOPNOTSUPP;
+	}
+
+	openhd_override_tx_power_mbm = get_openhd_override_tx_power_mbm();
+	if (openhd_override_tx_power_mbm > 0) {
+		int override_value = openhd_override_tx_power_mbm / 100;
+
+		if (override_value < 0)
+			override_value = 0;
+		if (override_value > 40)
+			override_value = 40;
+
+		padapter->registrypriv.RegTxPowerIndexOverride = 0;
+		pHalData->CurrentTxPwrIdx = override_value;
+		update_tx_power = true;
+		ret = 0;
+		RTW_WARN("OpenHD: using openhd_override_tx_power_mbm %d", openhd_override_tx_power_mbm);
+	}
+
+	if (update_tx_power)
 		rtw_hal_set_tx_power_level(padapter, pHalData->current_channel);
-	} else
-		return -EOPNOTSUPP;
 
 #if 0
 	struct iwm_priv *iwm = wiphy_to_iwm(wiphy);
@@ -4336,7 +4383,7 @@ static int cfg80211_rtw_set_txpower(struct wiphy *wiphy,
 	}
 #endif
 	RTW_INFO("%s\n", __func__);
-	return 0;
+	return ret;
 }
 
 static int cfg80211_rtw_get_txpower(struct wiphy *wiphy,
@@ -4350,10 +4397,13 @@ static int cfg80211_rtw_get_txpower(struct wiphy *wiphy,
 {
 	_adapter *padapter = wiphy_to_adapter(wiphy);
 	HAL_DATA_TYPE *pHalData = GET_HAL_DATA(padapter);
+	int openhd_override_tx_power_mbm = get_openhd_override_tx_power_mbm();
 
 	RTW_INFO("%s\n", __func__);
 
-	if(padapter->registrypriv.RegTxPowerIndexOverride){
+	if (openhd_override_tx_power_mbm > 0) {
+		*dbm = openhd_override_tx_power_mbm / 100;
+	} else if(padapter->registrypriv.RegTxPowerIndexOverride){
 		*dbm = padapter->registrypriv.RegTxPowerIndexOverride;
 	}else{
 		*dbm = pHalData->CurrentTxPwrIdx;
@@ -6329,6 +6379,34 @@ static int cfg80211_rtw_get_channel(struct wiphy *wiphy, struct wireless_dev *wd
 	return 0;
 }
 
+static void rtw_apply_openhd_monitor_overrides(_adapter *padapter,
+	u8 *target_channel, u8 *target_width, u8 *target_offset)
+{
+	struct registry_priv *regsty = &padapter->registrypriv;
+
+	/* Update if module param has been changed */
+	regsty->openhd_override_channel = get_openhd_override_channel();
+	regsty->openhd_override_channel_width = get_openhd_override_channel_width();
+
+	if (regsty->openhd_override_channel) {
+		*target_channel = regsty->openhd_override_channel;
+		RTW_WARN("OpenHD: using openhd_override_channel=%d", *target_channel);
+	}
+
+	if (regsty->openhd_override_channel_width) {
+		*target_width = regsty->openhd_override_channel_width;
+
+		if (*target_width <= CHANNEL_WIDTH_20)
+			*target_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
+
+		RTW_WARN("OpenHD: using openhd_override_channel_width=%d", *target_width);
+	}
+
+	RTW_WARN(FUNC_ADPT_FMT" OpenHD monitor override final ch:%d bw:%d offset:%d (requested ch:%d bw:%d)",
+		FUNC_ADPT_ARG(padapter), *target_channel, *target_width, *target_offset,
+		regsty->openhd_override_channel, regsty->openhd_override_channel_width);
+}
+
 static int cfg80211_rtw_set_monitor_channel(struct wiphy *wiphy
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 13, 0))
 	, struct net_device *dev
@@ -6388,7 +6466,13 @@ static int cfg80211_rtw_set_monitor_channel(struct wiphy *wiphy
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0))
 	case NL80211_CHAN_WIDTH_5:
+		target_width = CHANNEL_WIDTH_5;
+		target_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
+		break;
 	case NL80211_CHAN_WIDTH_10:
+		target_width = CHANNEL_WIDTH_10;
+		target_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
+		break;
 #endif
 	default:
 		target_width = CHANNEL_WIDTH_20;
@@ -6426,22 +6510,8 @@ static int cfg80211_rtw_set_monitor_channel(struct wiphy *wiphy
 	RTW_INFO(FUNC_ADPT_FMT" ch:%d bw:%d, offset:%d\n"
 		, FUNC_ADPT_ARG(padapter), target_channal, target_width, target_offset);
 
-	// OpenHD channel via module param
-	// update if module param has been updated
-	padapter->registrypriv.openhd_override_channel=get_openhd_override_channel();
-	padapter->registrypriv.openhd_override_channel_width=get_openhd_override_channel_width();
-
-	RTW_WARN("OpenHD: override %d %d",padapter->registrypriv.openhd_override_channel,padapter->registrypriv.openhd_override_channel_width);
-	{
-		if(padapter->registrypriv.openhd_override_channel){
-			target_channal=padapter->registrypriv.openhd_override_channel;
-			RTW_WARN("OpenHD: using openhd_override_channel");
-		}
-		if(padapter->registrypriv.openhd_override_channel_width){
-			target_width=padapter->registrypriv.openhd_override_channel_width;
-			RTW_WARN("OpenHD: using openhd_override_channel_width");
-		}
-	}
+	rtw_apply_openhd_monitor_overrides(padapter, &target_channal,
+		&target_width, &target_offset);
 
 
 	rtw_set_chbw_cmd(padapter, target_channal, target_width, target_offset, RTW_CMDF_WAIT_ACK);
@@ -9942,6 +10012,13 @@ struct ieee80211_supported_band *band;
 #if (KERNEL_VERSION(3, 8, 0) <= LINUX_VERSION_CODE)
 	wiphy->features |= NL80211_FEATURE_SAE;
 #endif
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0))
+#ifdef CONFIG_WIFI_MONITOR
+	/* Allow 5/10 MHz channel width in monitor mode */
+	wiphy->flags |= WIPHY_FLAG_SUPPORTS_5_10_MHZ;
+#endif
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0)) */
 
 	wiphy->available_antennas_tx = hal_spec->tx_nss_num;
 	wiphy->available_antennas_rx = hal_spec->rx_nss_num;

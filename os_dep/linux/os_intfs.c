@@ -143,6 +143,10 @@ int openhd_override_channel_width = 0;
 module_param(openhd_override_channel_width, int, 0644);
 MODULE_PARM_DESC(openhd_override_channel_width, "OpenHD easy (CRDA workaround)");
 
+int openhd_override_tx_power_mbm = 0;
+module_param(openhd_override_tx_power_mbm, int, 0644);
+MODULE_PARM_DESC(openhd_override_tx_power_mbm, "OpenHD easy (CRDA workaround)");
+
 /* set log level when inserting driver module, default log level is _DRV_INFO_ = 4,
 * please refer to "How_to_set_driver_debug_log_level.doc" to set the available level.
 */
@@ -5220,4 +5224,8 @@ int get_openhd_override_channel(void){
 
 int get_openhd_override_channel_width(void){
     return openhd_override_channel_width;
+}
+
+int get_openhd_override_tx_power_mbm(void){
+    return openhd_override_tx_power_mbm;
 }

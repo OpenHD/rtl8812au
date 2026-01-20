@@ -1116,15 +1116,15 @@ void phydm_do_kfree(void *dm_void, u8 channel_to_sw)
 		}
 	} else if (*dm->band_type == ODM_BAND_5G &&
 		   pwrtrim->flag & KFREE_FLAG_ON_5G) {
-		if (channel_to_sw >= 36 && channel_to_sw <= 48)
+		if (channel_to_sw >= 16 && channel_to_sw <= 48)
 			channel_idx = PHYDM_5GLB1;
-		if (channel_to_sw >= 52 && channel_to_sw <= 64)
+		if (channel_to_sw >= 52 && channel_to_sw <= 96)
 			channel_idx = PHYDM_5GLB2;
 		if (channel_to_sw >= 100 && channel_to_sw <= 120)
 			channel_idx = PHYDM_5GMB1;
 		if (channel_to_sw >= 122 && channel_to_sw <= 144)
 			channel_idx = PHYDM_5GMB2;
-		if (channel_to_sw >= 149 && channel_to_sw <= 177)
+		if (channel_to_sw >= 149 && channel_to_sw <= 253)
 			channel_idx = PHYDM_5GHB;
 
 		for (rfpath = RF_PATH_A; rfpath < max_path; rfpath++) {
