@@ -189,12 +189,12 @@ endif
 
 ifeq ($(CONFIG_RTL8812A)_$(CONFIG_RTL8821A)_$(CONFIG_RTL8814A), y_y_y)
 
-EXTRA_CFLAGS += -DDRV_NAME=\"rtl88xxau_ohd\"
+EXTRA_CFLAGS += -DDRV_NAME=\"rtl88x2au_ohd\"
 ifeq ($(CONFIG_USB_HCI), y)
-USER_MODULE_NAME = rtl88xxau_ohd
+USER_MODULE_NAME = 88x2au_ohd
 endif
 else
-EXTRA_CFLAGS += -DDRV_NAME=\"rtl88xxau_ohd\"
+EXTRA_CFLAGS += -DDRV_NAME=\"rtl88x2au_ohd\"
 endif
 
 _OS_INTFS_FILES :=	os_dep/osdep_service.o \
@@ -241,7 +241,7 @@ ifneq ($(CONFIG_RTL8812A)_$(CONFIG_RTL8821A), n_n)
 
 RTL871X = rtl8812a
 ifeq ($(CONFIG_USB_HCI), y)
-MODULE_NAME = rtl88xxau_ohd
+MODULE_NAME = 88x2au_ohd
 endif
 
 _HAL_INTFS_FILES +=  hal/HalPwrSeqCmd.o \
@@ -336,7 +336,7 @@ CONFIG_MP_VHT_HW_TX_MODE = n
 ##########################################
 RTL871X = rtl8814a
 ifeq ($(CONFIG_USB_HCI), y)
-MODULE_NAME = rtl88xxau_ohd
+MODULE_NAME = 88x2au_ohd
 endif
 
 EXTRA_CFLAGS += -DCONFIG_RTL8814A
