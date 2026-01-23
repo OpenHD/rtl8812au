@@ -3746,15 +3746,25 @@ if(type == NL80211_TX_POWER_FIXED) {
 }
 
 static int cfg80211_rtw_get_txpower(struct wiphy *wiphy,
-#if (CFG80211_API_LEVEL >= KERNEL_VERSION(3, 8, 0))
-	struct wireless_dev *wdev,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 14, 0))
+	struct wireless_dev *wdev, unsigned int link_id, int *dbm
+#elif (CFG80211_API_LEVEL >= KERNEL_VERSION(3, 8, 0))
+	struct wireless_dev *wdev, int *dbm
+#else
+	int *dbm
 #endif
-	int *dbm)
+	)
 {
 	_adapter *padapter = wiphy_to_adapter(wiphy);
 	HAL_DATA_TYPE *pHalData = GET_HAL_DATA(padapter);
 
 	RTW_INFO("%s\n", __func__);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 14, 0))
+	(void)wdev;
+	(void)link_id;
+#elif (CFG80211_API_LEVEL >= KERNEL_VERSION(3, 8, 0))
+	(void)wdev;
+#endif
 	if(padapter->registrypriv.RegTxPowerIndexOverride){
 	  	*dbm = padapter->registrypriv.RegTxPowerIndexOverride;
 	}else{
@@ -5087,7 +5097,10 @@ static int	cfg80211_rtw_set_channel(struct wiphy *wiphy
 }
 // Consti10: In monitor mode, this method is used the set the channel freq, at least on ubuntu 5.19.X
 static int cfg80211_rtw_set_monitor_channel(struct wiphy *wiphy
-#if (CFG80211_API_LEVEL >= KERNEL_VERSION(3, 8, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 14, 0))
+	, struct net_device *ndev
+	, struct cfg80211_chan_def *chandef
+#elif (CFG80211_API_LEVEL >= KERNEL_VERSION(3, 8, 0))
 	, struct cfg80211_chan_def *chandef
 #else
 	, struct ieee80211_channel *chan
@@ -5103,6 +5116,10 @@ static int cfg80211_rtw_set_monitor_channel(struct wiphy *wiphy
 	int target_channal = chan->hw_value;
 	int target_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
 	int target_width = CHANNEL_WIDTH_20;
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 14, 0))
+	(void)ndev;
+#endif
 
 #if (CFG80211_API_LEVEL >= KERNEL_VERSION(3, 8, 0))
 #ifdef CONFIG_DEBUG_CFG80211
