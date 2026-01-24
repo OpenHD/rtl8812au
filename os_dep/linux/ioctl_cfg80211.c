@@ -6424,9 +6424,9 @@ static int cfg80211_rtw_set_monitor_channel(struct wiphy *wiphy
 #endif
 
 	_adapter *padapter = wiphy_to_adapter(wiphy);
-	int target_channal = chan->hw_value;
-	int target_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
-	int target_width = CHANNEL_WIDTH_20;
+	u8 target_channal = (u8)chan->hw_value;
+	u8 target_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
+	u8 target_width = CHANNEL_WIDTH_20;
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
 #ifdef CONFIG_DEBUG_CFG80211
