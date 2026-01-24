@@ -18,7 +18,17 @@
 #include <linux/export.h>
 #include <net/cfg80211.h>
 #include <net/ieee80211_radiotap.h>
+#if defined(__has_include)
+#if __has_include(<linux/unaligned.h>)
 #include <linux/unaligned.h>
+#elif __has_include(<asm/unaligned.h>)
+#include <asm/unaligned.h>
+#else
+#include <asm/unaligned.h>
+#endif
+#else
+#include <asm/unaligned.h>
+#endif
 
 /* function prototypes and related defs are in include/net/cfg80211.h */
 

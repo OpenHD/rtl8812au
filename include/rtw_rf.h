@@ -208,7 +208,7 @@ typedef enum _REGULATION_TXPWR_LMT {
 extern const char *const _regd_str[];
 #define regd_str(regd) (((regd) > TXPWR_LMT_WW) ? _regd_str[TXPWR_LMT_WW] : _regd_str[(regd)])
 
-#if CONFIG_TXPWR_LIMIT
+#ifdef CONFIG_TXPWR_LIMIT
 struct regd_exc_ent {
 	_list list;
 	char country[2];
