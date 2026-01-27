@@ -3392,7 +3392,7 @@ exit:
 }
 
 static int cfg80211_rtw_set_wiphy_params(struct wiphy *wiphy,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0))
 	int radio_idx,
 #endif
 	u32 changed)
@@ -3427,7 +3427,7 @@ static int cfg80211_rtw_set_wiphy_params(struct wiphy *wiphy,
 	}
 #endif
 	RTW_INFO("%s\n", __func__);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0))
 	(void)radio_idx;
 #endif
 	return 0;
@@ -4300,7 +4300,7 @@ static int cfg80211_rtw_set_txpower(struct wiphy *wiphy,
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
 	struct wireless_dev *wdev,
 #endif
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0))
 	int radio_idx,
 #endif
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36)) || defined(COMPAT_KERNEL_RELEASE)
@@ -4317,7 +4317,7 @@ static int cfg80211_rtw_set_txpower(struct wiphy *wiphy,
 	int openhd_override_tx_power_mbm = 0;
 	bool update_tx_power = false;
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0))
 	(void)radio_idx;
 #endif
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36)) || defined(COMPAT_KERNEL_RELEASE)
@@ -4404,7 +4404,7 @@ static int cfg80211_rtw_get_txpower(struct wiphy *wiphy,
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
 	struct wireless_dev *wdev,
 #endif
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0))
 	int radio_idx,
 #endif
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 14, 0))
@@ -4418,7 +4418,7 @@ static int cfg80211_rtw_get_txpower(struct wiphy *wiphy,
 
 	RTW_INFO("%s\n", __func__);
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0))
 	(void)radio_idx;
 #endif
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 14, 0))

@@ -401,7 +401,7 @@ __inline static void _cancel_timer(_timer *ptimer, u8 *bcancelled)
 	 * Timer deletion helpers were renamed in newer kernels.
 	 * del_timer_sync() -> timer_delete_sync()
 	 */
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0))
 	*bcancelled = timer_delete_sync(&ptimer->timer) ? 1 : 0;
 #else
 	*bcancelled = del_timer_sync(&ptimer->timer) == 1 ? 1 : 0;
