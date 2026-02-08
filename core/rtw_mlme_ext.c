@@ -16390,11 +16390,34 @@ u8 rtw_set_chbw_hdl(_adapter *padapter, u8 *pbuf)
 {
 	struct set_ch_parm *set_ch_parm;
 	struct mlme_ext_priv	*pmlmeext = &padapter->mlmeextpriv;
+	struct registry_priv *regsty = &padapter->registrypriv;
 
 	if (!pbuf)
 		return H2C_PARAMETERS_ERROR;
 
 	set_ch_parm = (struct set_ch_parm *)pbuf;
+
+	/* OpenHD override: enforce channel/bw at the last possible point */
+	regsty->openhd_override_channel = get_openhd_override_channel();
+	regsty->openhd_override_channel_width = get_openhd_override_channel_width();
+
+	if (regsty->openhd_override_channel) {
+		set_ch_parm->ch = regsty->openhd_override_channel;
+	}
+
+	if (regsty->openhd_override_channel_width) {
+		set_ch_parm->bw = regsty->openhd_override_channel_width;
+		if (set_ch_parm->bw <= CHANNEL_WIDTH_20) {
+			set_ch_parm->ch_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
+		} else if (set_ch_parm->bw == CHANNEL_WIDTH_40) {
+			u8 offset = set_ch_parm->ch_offset;
+
+			if (rtw_get_offset_by_chbw(set_ch_parm->ch, set_ch_parm->bw, &offset))
+				set_ch_parm->ch_offset = offset;
+		}
+		RTW_WARN("OpenHD: force chbw ch:%u bw:%u offset:%u",
+			set_ch_parm->ch, set_ch_parm->bw, set_ch_parm->ch_offset);
+	}
 
 	RTW_INFO(FUNC_NDEV_FMT" ch:%u, bw:%u, ch_offset:%u\n",
 		 FUNC_NDEV_ARG(padapter->pnetdev),
