@@ -46,6 +46,12 @@ PHY_RF6052SetBandwidth8812(
 		phy_set_rf_reg(Adapter, RF_PATH_B, RF_CHNLBW_Jaguar, BIT11 | BIT10, 3);
 		break;
 
+	case CHANNEL_WIDTH_10:
+		/* Treat 10MHz as 20MHz on RF BW register */
+		phy_set_rf_reg(Adapter, RF_PATH_A, RF_CHNLBW_Jaguar, BIT11 | BIT10, 3);
+		phy_set_rf_reg(Adapter, RF_PATH_B, RF_CHNLBW_Jaguar, BIT11 | BIT10, 3);
+		break;
+
 	case CHANNEL_WIDTH_40:
 		/* RTW_INFO("PHY_RF6052SetBandwidth8812(), set 40MHz\n"); */
 		phy_set_rf_reg(Adapter, RF_PATH_A, RF_CHNLBW_Jaguar, BIT11 | BIT10, 1);

@@ -16,6 +16,32 @@
 
 #include <rtl8812a_hal.h>
 
+#define REG_AFE_CTRL1_8812A			0x0024
+#define BIT_SHIFT_MAC_CLK_SEL_8812A		20
+#define BIT_MASK_MAC_CLK_SEL_8812A		0x3
+
+#define MAC_CLK_HW_DEF_80M			0
+#define MAC_CLK_HW_DEF_20M			2
+#define MAC_CLK_SPEED_80M			0x50
+#define MAC_CLK_SPEED_20M			0x14
+
+static void phy_set_mac_clk_8812a(PADAPTER adapter, enum channel_width bw)
+{
+	u32 value32 = rtw_read32(adapter, REG_AFE_CTRL1_8812A);
+
+	value32 &= ~(BIT_MASK_MAC_CLK_SEL_8812A << BIT_SHIFT_MAC_CLK_SEL_8812A);
+	if (bw == CHANNEL_WIDTH_10) {
+		value32 |= (MAC_CLK_HW_DEF_20M << BIT_SHIFT_MAC_CLK_SEL_8812A);
+		rtw_write8(adapter, REG_USTIME_TSF, MAC_CLK_SPEED_20M);
+		rtw_write8(adapter, REG_USTIME_EDCA, MAC_CLK_SPEED_20M);
+	} else {
+		value32 |= (MAC_CLK_HW_DEF_80M << BIT_SHIFT_MAC_CLK_SEL_8812A);
+		rtw_write8(adapter, REG_USTIME_TSF, MAC_CLK_SPEED_80M);
+		rtw_write8(adapter, REG_USTIME_EDCA, MAC_CLK_SPEED_80M);
+	}
+	rtw_write32(adapter, REG_AFE_CTRL1_8812A, value32);
+}
+
 /* Manual Transmit Power Control 
    The following options take values from 0 to 63, where:
    0 - disable
@@ -1554,6 +1580,10 @@ phy_SetRegBW_8812(
 		rtw_write16(Adapter, REG_WMAC_TRXPTCL_CTL, (RegRfMod_BW & 0xFE7F)); /* BIT 7 = 0, BIT 8 = 0 */
 		break;
 
+	case CHANNEL_WIDTH_10:
+		rtw_write16(Adapter, REG_WMAC_TRXPTCL_CTL, (RegRfMod_BW & 0xFE7F)); /* BIT 7 = 0, BIT 8 = 0 */
+		break;
+
 	case CHANNEL_WIDTH_40:
 		u2tmp = RegRfMod_BW | BIT7;
 		rtw_write16(Adapter, REG_WMAC_TRXPTCL_CTL, (u2tmp & 0xFEFF)); /* BIT 7 = 1, BIT 8 = 0 */
@@ -1586,7 +1616,7 @@ phy_FixSpur_8812A(
 			phy_set_bb_reg(pAdapter, rRFMOD_Jaguar, 0xC00, 0x2);		/* 0x8AC[11:10] = 2'b10 */
 
 		/* <20120914, Kordan> A workarould to resolve 2480Mhz spur by setting ADC clock as 160M. (Asked by Binson) */
-		if (Bandwidth == CHANNEL_WIDTH_20 &&
+		if ((Bandwidth == CHANNEL_WIDTH_20 || Bandwidth == CHANNEL_WIDTH_10) &&
 		    (Channel == 13 || Channel == 14)) {
 
 			phy_set_bb_reg(pAdapter, rRFMOD_Jaguar, 0x300, 0x3);		/* 0x8AC[9:8] = 2'b11 */
@@ -1605,7 +1635,7 @@ phy_FixSpur_8812A(
 		}
 	} else if (IS_HARDWARE_TYPE_8812(pAdapter)) {
 		/* <20120914, Kordan> A workarould to resolve 2480Mhz spur by setting ADC clock as 160M. (Asked by Binson) */
-		if (Bandwidth == CHANNEL_WIDTH_20 &&
+		if ((Bandwidth == CHANNEL_WIDTH_20 || Bandwidth == CHANNEL_WIDTH_10) &&
 		    (Channel == 13 || Channel == 14))
 			phy_set_bb_reg(pAdapter, rRFMOD_Jaguar, 0x300, 0x3);  /* 0x8AC[9:8] = 11 */
 		else if (Channel <= 14) /* 2.4G only */
@@ -1640,6 +1670,7 @@ phy_PostSetBwMode8812(
 	/* 3 Set Reg848 Reg864 Reg8AC Reg8C4 RegA00 */
 	switch (pHalData->current_channel_bw) {
 	case CHANNEL_WIDTH_20:
+		phy_set_mac_clk_8812a(Adapter, CHANNEL_WIDTH_20);
 		phy_set_bb_reg(Adapter, rRFMOD_Jaguar, 0x003003C3, 0x00300200); /* 0x8ac[21,20,9:6,1,0]=8'b11100000 */
 		phy_set_bb_reg(Adapter, rADC_Buf_Clk_Jaguar, BIT30, 0);			/* 0x8c4[30] = 1'b0 */
 
@@ -1650,7 +1681,20 @@ phy_PostSetBwMode8812(
 
 		break;
 
+	case CHANNEL_WIDTH_10:
+		phy_set_mac_clk_8812a(Adapter, CHANNEL_WIDTH_10);
+		phy_set_bb_reg(Adapter, rRFMOD_Jaguar, 0x003003C3, 0x00300200); /* same as 20M */
+		phy_set_bb_reg(Adapter, rADC_Buf_Clk_Jaguar, BIT30, 0);			/* 0x8c4[30] = 1'b0 */
+
+		if (pHalData->rf_type == RF_2T2R)
+			phy_set_bb_reg(Adapter, rL1PeakTH_Jaguar, 0x03C00000, 7);	/* 2R 0x848[25:22] = 0x7 */
+		else
+			phy_set_bb_reg(Adapter, rL1PeakTH_Jaguar, 0x03C00000, 8);	/* 1R 0x848[25:22] = 0x8 */
+
+		break;
+
 	case CHANNEL_WIDTH_40:
+		phy_set_mac_clk_8812a(Adapter, CHANNEL_WIDTH_40);
 		phy_set_bb_reg(Adapter, rRFMOD_Jaguar, 0x003003C3, 0x00300201); /* 0x8ac[21,20,9:6,1,0]=8'b11100000		 */
 		phy_set_bb_reg(Adapter, rADC_Buf_Clk_Jaguar, BIT30, 0);			/* 0x8c4[30] = 1'b0 */
 		phy_set_bb_reg(Adapter, rRFMOD_Jaguar, 0x3C, SubChnlNum);
@@ -1674,6 +1718,7 @@ phy_PostSetBwMode8812(
 		break;
 
 	case CHANNEL_WIDTH_80:
+		phy_set_mac_clk_8812a(Adapter, CHANNEL_WIDTH_80);
 		phy_set_bb_reg(Adapter, rRFMOD_Jaguar, 0x003003C3, 0x00300202); /* 0x8ac[21,20,9:6,1,0]=8'b11100010 */
 		phy_set_bb_reg(Adapter, rADC_Buf_Clk_Jaguar, BIT30, 1);			/* 0x8c4[30] = 1 */
 		phy_set_bb_reg(Adapter, rRFMOD_Jaguar, 0x3C, SubChnlNum);
@@ -1692,6 +1737,7 @@ phy_PostSetBwMode8812(
 		break;
 
 	default:
+		phy_set_mac_clk_8812a(Adapter, CHANNEL_WIDTH_20);
 		RTW_INFO("phy_PostSetBWMode8812():	unknown Bandwidth: %#X\n", pHalData->current_channel_bw);
 		break;
 	}

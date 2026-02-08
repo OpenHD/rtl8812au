@@ -605,7 +605,9 @@ u8 rtw_get_center_ch(u8 channel, u8 chnl_bw, u8 chnl_offset)
 			center_ch = channel + 2;
 		else
 			center_ch = channel - 2;
-	} else if (chnl_bw == CHANNEL_WIDTH_20)
+	} else if (chnl_bw == CHANNEL_WIDTH_20
+		|| chnl_bw == CHANNEL_WIDTH_10
+		|| chnl_bw == CHANNEL_WIDTH_5)
 		center_ch = channel;
 	else
 		rtw_warn_on(1);
