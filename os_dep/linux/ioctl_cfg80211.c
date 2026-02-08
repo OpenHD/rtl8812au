@@ -6236,9 +6236,9 @@ static int	cfg80211_rtw_set_channel(struct wiphy *wiphy
 #else
 	_adapter *padapter = wiphy_to_adapter(wiphy);
 #endif
-	int chan_target = (u8) ieee80211_frequency_to_channel(chan->center_freq);
-	int chan_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
-	int chan_width = CHANNEL_WIDTH_20;
+	u8 chan_target = (u8) ieee80211_frequency_to_channel(chan->center_freq);
+	u8 chan_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
+	u8 chan_width = CHANNEL_WIDTH_20;
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35))
 	RTW_INFO(FUNC_NDEV_FMT"\n", FUNC_NDEV_ARG(ndev));
