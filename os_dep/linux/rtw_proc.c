@@ -755,7 +755,7 @@ static int proc_get_monitor_chan_override(struct seq_file *m, void *v)
 	RTW_PRINT_SEL(m, "\n");
 	RTW_PRINT_SEL(m, "Usage: echo \"<chan> <bw>\" > monitor_chan_override\n");
 	RTW_PRINT_SEL(m, "chan:	16~253, ((channel-16) mod 4 == 0) || ((channel-149) mod 4 == 0); freq=channel*5+5000\n");
-	RTW_PRINT_SEL(m, "bw:	10-10MHz, 20-20MHz\n");
+	RTW_PRINT_SEL(m, "bw:	5-5MHz, 10-10MHz, 20-20MHz, 40-40MHz, 80-80MHz\n");
 	RTW_PRINT_SEL(m, "\n");
 	RTW_PRINT_SEL(m, "e.g.  To transmit in 6005MHz with 10MHz BW, use \n");
 	RTW_PRINT_SEL(m, "\techo \"201 10\" > monitor_chan_override\n");
@@ -774,6 +774,7 @@ static ssize_t proc_set_monitor_chan_override(struct file *file, const char __us
 	u32 chan = 149;
 	u32 bw = 20;
 	u32 offset = 0;
+	u8 bw_enum = CHANNEL_WIDTH_20;
 
 	if (!padapter)
 		return -EFAULT;
@@ -794,13 +795,40 @@ static ssize_t proc_set_monitor_chan_override(struct file *file, const char __us
 			return count;
 	}
 
-	if ((bw != 10) && (bw != 20)) {
+	switch (bw) {
+	case 5:
+		bw_enum = CHANNEL_WIDTH_5;
+		break;
+	case 10:
+		bw_enum = CHANNEL_WIDTH_10;
+		break;
+	case 20:
+		bw_enum = CHANNEL_WIDTH_20;
+		break;
+	case 40:
+		bw_enum = CHANNEL_WIDTH_40;
+		break;
+	case 80:
+		bw_enum = CHANNEL_WIDTH_80;
+		break;
+	default:
 		RTW_INFO("monitor_chan_override Bandwidth error: %u\n", bw);
 		return count;
 	}
 
+	if (bw_enum == CHANNEL_WIDTH_40) {
+		u8 tmp_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
+
+		if (rtw_get_offset_by_chbw((u8)chan, bw_enum, &tmp_offset))
+			offset = tmp_offset;
+		else {
+			RTW_INFO("monitor_chan_override Invalid 40MHz channel: %u\n", chan);
+			return count;
+		}
+	}
+
 	RTW_INFO("Write to monitor_chan_override: chan=%d, bw=%d, offset=%d\n", chan, bw, offset);
-	rtw_set_chbw_cmd(padapter, (u8)chan, (bw == 10) ? 6 : 0, (u8)offset, RTW_CMDF_WAIT_ACK);
+	rtw_set_chbw_cmd(padapter, (u8)chan, bw_enum, (u8)offset, RTW_CMDF_WAIT_ACK);
 
 	return count;
 }
