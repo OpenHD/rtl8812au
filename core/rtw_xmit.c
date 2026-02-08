@@ -4416,6 +4416,7 @@ s32 rtw_monitor_xmit_entry(struct sk_buff *skb, struct net_device *ndev)
 	struct ieee80211_radiotap_header *rtap_hdr; // net/ieee80211_radiotap.h
 	struct ieee80211_radiotap_iterator iterator; // net/cfg80211.h
 	u8 rtap_buf[256];
+	u8 rtap_bw_specified = 0;
 
 	int alloc_tries, alloc_delay;
 
@@ -4611,6 +4612,7 @@ s32 rtw_monitor_xmit_entry(struct sk_buff *skb, struct net_device *ndev)
 					}
 
 					pattrib->bwmode = bw;
+					rtap_bw_specified = 1;
 				}
 
 				if (mcs_have & IEEE80211_RADIOTAP_MCS_HAVE_MCS) {
@@ -4671,6 +4673,7 @@ s32 rtw_monitor_xmit_entry(struct sk_buff *skb, struct net_device *ndev)
 						pattrib->bwmode = CHANNEL_WIDTH_80; 
 					else if (bw >= 11 && bw <= 25)
 						pattrib->bwmode = CHANNEL_WIDTH_80; // Supposed to be 160Mhz, we use 80Mhz
+					rtap_bw_specified = 1;
 				}
 
 				// User 0
@@ -4692,6 +4695,13 @@ s32 rtw_monitor_xmit_entry(struct sk_buff *skb, struct net_device *ndev)
 			default:
 				break;
 		}
+	}
+
+	if (!rtap_bw_specified && pmlmeext->cur_bwmode > CHANNEL_WIDTH_20) {
+		pattrib->bwmode = pmlmeext->cur_bwmode;
+		if (pattrib->bwmode >= CHANNEL_WIDTH_40 &&
+		    pattrib->ch_offset == HAL_PRIME_CHNL_OFFSET_DONT_CARE)
+			pattrib->ch_offset = pmlmeext->cur_ch_offset;
 	}
 
 	// All set
