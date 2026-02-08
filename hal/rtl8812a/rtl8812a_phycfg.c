@@ -1684,6 +1684,7 @@ phy_PostSetBwMode8812(
 	case CHANNEL_WIDTH_10:
 		phy_set_mac_clk_8812a(Adapter, CHANNEL_WIDTH_10);
 		phy_set_bb_reg(Adapter, rRFMOD_Jaguar, 0x003003C3, 0x00300200); /* same as 20M */
+		phy_set_bb_reg(Adapter, rRFMOD_Jaguar, bRFMOD_Jaguar, BIT(7) | CHANNEL_WIDTH_20);
 		phy_set_bb_reg(Adapter, rADC_Buf_Clk_Jaguar, BIT30, 0);			/* 0x8c4[30] = 1'b0 */
 
 		if (pHalData->rf_type == RF_2T2R)
