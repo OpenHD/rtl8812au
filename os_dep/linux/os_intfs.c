@@ -5226,8 +5226,35 @@ int get_openhd_override_channel(void){
     return openhd_override_channel;
 }
 
+static int map_openhd_override_channel_width(int raw_width)
+{
+	if (raw_width <= 0)
+		return 0;
+	if (raw_width <= CHANNEL_WIDTH_MAX)
+		return raw_width;
+
+	switch (raw_width) {
+	case 5:
+		return CHANNEL_WIDTH_5;
+	case 10:
+		return CHANNEL_WIDTH_10;
+	case 20:
+		return CHANNEL_WIDTH_20;
+	case 40:
+		return CHANNEL_WIDTH_40;
+	case 80:
+		return CHANNEL_WIDTH_80;
+	case 160:
+		return CHANNEL_WIDTH_160;
+	default:
+		break;
+	}
+
+	return raw_width;
+}
+
 int get_openhd_override_channel_width(void){
-    return openhd_override_channel_width;
+    return map_openhd_override_channel_width(openhd_override_channel_width);
 }
 
 int get_openhd_override_tx_power_mbm(void){
