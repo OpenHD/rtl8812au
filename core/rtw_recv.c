@@ -4304,7 +4304,7 @@ int recv_frame_monitor(_adapter *padapter, union recv_frame *rframe)
 	skb_set_tail_pointer(pskb, rframe->u.hdr.len);
 
 	/* Update signal stats/SNR for monitor mode */
-	if (rframe->u.hdr.attrib.phy_info.physts_rpt_valid == _TRUE) {
+	if (rframe->u.hdr.attrib.physt) {
 		struct dm_struct *dm = adapter_to_phydm(padapter);
 
 		rx_process_phy_info(padapter, rframe);
