@@ -6222,6 +6222,9 @@ static int	cfg80211_rtw_set_txq_params(struct wiphy *wiphy
 }
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29)) */
 
+static void rtw_apply_openhd_monitor_overrides(_adapter *padapter,
+	u8 *target_channel, u8 *target_width, u8 *target_offset);
+
 static int	cfg80211_rtw_set_channel(struct wiphy *wiphy
 	#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35))
 	, struct net_device *ndev
@@ -6262,6 +6265,9 @@ static int	cfg80211_rtw_set_channel(struct wiphy *wiphy
 
 	RTW_INFO(FUNC_ADPT_FMT" ch:%d bw:%d, offset:%d\n"
 		, FUNC_ADPT_ARG(padapter), chan_target, chan_width, chan_offset);
+
+	rtw_apply_openhd_monitor_overrides(padapter, &chan_target,
+		&chan_width, &chan_offset);
 
 	rtw_set_chbw_cmd(padapter, chan_target, chan_width, chan_offset, RTW_CMDF_WAIT_ACK);
 
