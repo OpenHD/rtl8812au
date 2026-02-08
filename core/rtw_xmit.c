@@ -4704,6 +4704,22 @@ s32 rtw_monitor_xmit_entry(struct sk_buff *skb, struct net_device *ndev)
 			pattrib->ch_offset = pmlmeext->cur_ch_offset;
 	}
 
+	/* OpenHD: if a channel-width override is set, don't let radiotap force 20MHz */
+	{
+		int openhd_bw = get_openhd_override_channel_width();
+		if (openhd_bw > CHANNEL_WIDTH_20 && pattrib->bwmode == CHANNEL_WIDTH_20) {
+			pattrib->bwmode = (u8)openhd_bw;
+			if (pattrib->bwmode >= CHANNEL_WIDTH_40 &&
+			    pattrib->ch_offset == HAL_PRIME_CHNL_OFFSET_DONT_CARE) {
+				u8 offset = pmlmeext->cur_ch_offset;
+
+				if (offset == HAL_PRIME_CHNL_OFFSET_DONT_CARE)
+					rtw_get_offset_by_chbw(pmlmeext->cur_channel, pattrib->bwmode, &offset);
+				pattrib->ch_offset = offset;
+			}
+		}
+	}
+
 	// All set
 	dump_mgntframe(padapter, pmgntframe);
 	pxmitpriv->tx_pkts++;
