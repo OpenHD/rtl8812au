@@ -1141,8 +1141,12 @@ uint loadparam(_adapter *padapter)
 
 #if CONFIG_TXPWR_LIMIT
 	registry_par->RegEnableTxPowerLimit = (u8)rtw_tx_pwr_lmt_enable;
+	RTW_INFO("OpenHD:rtw_tx_pwr_lmt_enable:%d\n", (int)rtw_tx_pwr_lmt_enable);
 #endif
+	RTW_INFO("OpenHD:hard-coded params !!");
+	rtw_tx_pwr_by_rate = 0;
 	registry_par->RegEnableTxPowerByRate = (u8)rtw_tx_pwr_by_rate;
+	RTW_INFO("OpenHD:rtw_tx_pwr_by_rate:%d\n", (int)rtw_tx_pwr_by_rate);
 
 	rtw_regsty_load_target_tx_power(registry_par);
 
