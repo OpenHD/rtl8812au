@@ -21,11 +21,11 @@
  * Public  General Config
  */
 #define AUTOCONF_INCLUDED
-#define RTL871X_MODULE_NAME "rtl88x2au_ohd"
+#define RTL871X_MODULE_NAME "8812AU"
 
 /*
 #ifndef DRV_NAME
-#define DRV_NAME "rtl88x2au_ohd"
+#define DRV_NAME "rtl8812au"
 #endif
 */
 
