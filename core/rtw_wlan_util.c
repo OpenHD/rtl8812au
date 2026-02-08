@@ -491,71 +491,22 @@ u8 rtw_get_offset_by_chbw(u8 ch, u8 bw, u8 *r_offset)
 		valid = 0; /* ch14 doesn't support 40MHz bandwidth */
 		goto exit;
 	} else if (ch >= 16 && ch <= 253) {
-		switch (ch) {
-		case 20:
-		case 28:
-		case 36:
-		case 44:
-		case 52:
-		case 60:
-		case 68:
-		case 76:
-		case 84:
-		case 92:
-		case 100:
-		case 108:
-		case 116:
-		case 124:
-		case 132:
-		case 140:
-		case 149:
-		case 157:
-		case 165:
-		case 173:
-		case 181:
-		case 189:
-		case 197:
-		case 205:
-		case 213:
-		case 221:
-		case 237:
-		case 245:
-			offset = HAL_PRIME_CHNL_OFFSET_LOWER;
-			break;
-		case 24:
-		case 32:
-		case 40:
-		case 48:
-		case 56:
-		case 64:
-		case 72:
-		case 80:
-		case 88:
-		case 96:
-		case 104:
-		case 112:
-		case 120:
-		case 128:
-		case 136:
-		case 144:
-		case 153:
-		case 161:
-		case 169:
-		case 177:
-		case 185:
-		case 193:
-		case 201:
-		case 209:
-		case 217:
-		case 225:
-		case 241:
-		case 249:
-			offset = HAL_PRIME_CHNL_OFFSET_UPPER;
-			break;
-		default:
+		if (ch >= 20 && ch <= 144) {
+			if (ch % 8 == 4)
+				offset = HAL_PRIME_CHNL_OFFSET_LOWER;
+			else if (ch % 8 == 0)
+				offset = HAL_PRIME_CHNL_OFFSET_UPPER;
+			else
+				valid = 0;
+		} else if (ch >= 149 && ch <= 253) {
+			if (ch % 8 == 5)
+				offset = HAL_PRIME_CHNL_OFFSET_LOWER;
+			else if (ch % 8 == 1)
+				offset = HAL_PRIME_CHNL_OFFSET_UPPER;
+			else
+				valid = 0;
+		} else
 			valid = 0;
-			break;
-		}
 	} else
 		valid = 0;
 

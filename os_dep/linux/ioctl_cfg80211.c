@@ -6398,8 +6398,7 @@ static void rtw_apply_openhd_monitor_overrides(_adapter *padapter,
 
 		if (*target_width <= CHANNEL_WIDTH_20)
 			*target_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
-		else if (*target_width == CHANNEL_WIDTH_40 &&
-			 *target_offset == HAL_PRIME_CHNL_OFFSET_DONT_CARE) {
+		else if (*target_width == CHANNEL_WIDTH_40) {
 			u8 offset = *target_offset;
 
 			if (rtw_get_offset_by_chbw(*target_channel, *target_width, &offset))
