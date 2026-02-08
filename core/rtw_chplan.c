@@ -125,6 +125,7 @@ enum rtw_rd_5g {
 	RTW_RD_5G_WORLD1 = 55,	/* 5G Worldwide Band1&2 */
 	RTW_RD_5G_CHILE2 = 56,	/* Chile (Band2,Band3) */
 	RTW_RD_5G_KCC2 = 57,	/* Korea (New standard) */
+	RTW_RD_5G_EXT = 58,		/* Realtek define (extended 5G) */
 
 	/* === Below are driver defined for legacy channel plan compatible, DON'T assign index ==== */
 	RTW_RD_5G_OLD_FCC1,
@@ -234,6 +235,7 @@ static struct ch_list_t RTW_ChannelPlan5G[] = {
 	/* 55, RTW_RD_5G_WORLD1 */	CH_LIST_ENT(8, 36, 40, 44, 48, 52, 56, 60, 64),
 	/* 56, RTW_RD_5G_CHILE2 */	CH_LIST_ENT(16, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144),
 	/* 57, RTW_RD_5G_KCC2 */	CH_LIST_ENT(24, 36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 149, 153, 157, 161, 165),
+	/* 58, RTW_RD_5G_EXT */		CH_LIST_ENT(60, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80, 84, 88, 92, 96, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144, 149, 153, 157, 161, 165, 169, 173, 177, 181, 185, 189, 193, 197, 201, 205, 209, 213, 217, 221, 225, 229, 233, 237, 241, 245, 249, 253),
 
 	/* === Below are driver defined for legacy channel plan compatible, NO static index assigned ==== */
 	/* RTW_RD_5G_OLD_FCC1 */	CH_LIST_ENT(20, 36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 136, 140, 149, 153, 157, 161, 165),
@@ -371,7 +373,7 @@ static struct chplan_ent_t RTW_ChannelPlanMap[RTW_CHPLAN_MAX] = {
 };
 
 static struct chplan_ent_t RTW_CHANNEL_PLAN_MAP_REALTEK_DEFINE =
-	CHPLAN_ENT(RTW_RD_2G_WORLD,		RTW_RD_5G_FCC1,		TXPWR_LMT_FCC);		/* 0x7F, Realtek Define */
+	CHPLAN_ENT(RTW_RD_2G_WORLD,		RTW_RD_5G_EXT,		TXPWR_LMT_WW);		/* 0x7F, Realtek Define */
 
 u8 rtw_chplan_get_default_regd(u8 id)
 {
@@ -428,6 +430,7 @@ inline static u8 rtw_rd_5g_band1_passive(u8 rtw_rd_5g)
 	case RTW_RD_5G_ETSI19:
 	case RTW_RD_5G_WORLD:
 	case RTW_RD_5G_WORLD1:
+	case RTW_RD_5G_EXT:
 		passive = 1;
 	};
 
@@ -444,6 +447,7 @@ inline static u8 rtw_rd_5g_band4_passive(u8 rtw_rd_5g)
 	case RTW_RD_5G_ETSI18:
 	case RTW_RD_5G_ETSI19:
 	case RTW_RD_5G_WORLD:
+	case RTW_RD_5G_EXT:
 		passive = 1;
 	};
 
