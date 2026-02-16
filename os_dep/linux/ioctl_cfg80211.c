@@ -4821,6 +4821,9 @@ static int rtw_cfg80211_monitor_if_xmit_entry(struct sk_buff *skb, struct net_de
 			goto fail;
 		}
 
+		if (len >= 10)
+			rtw_led_tx_control(padapter, GetAddr1Ptr(buf));
+
 		RTW_INFO("RTW_Tx:da="MAC_FMT" via "FUNC_NDEV_FMT"\n",
 			MAC_ARG(GetAddr1Ptr(buf)), FUNC_NDEV_ARG(ndev));
 		#ifdef CONFIG_P2P

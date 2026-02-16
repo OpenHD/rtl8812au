@@ -4470,6 +4470,10 @@ s32 rtw_monitor_xmit_entry(struct sk_buff *skb, struct net_device *ndev)
 //	_rtw_memcpy(pframe, (void *)checking, len);
 	_rtw_pktfile_read(&pktfile, pframe, len);
 
+	/* blink LED on monitor TX */
+	if (len >= 10)
+		rtw_led_tx_control(padapter, GetAddr1Ptr(pframe));
+
 
 	// Setup attribs for default Mgmt vs Data frame
 	pwlanhdr = (struct rtw_ieee80211_hdr *)pframe;
