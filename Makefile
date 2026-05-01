@@ -1746,8 +1746,15 @@ export CONFIG_RTL8812AU = m
 
 all: modules
 
+# Read the compiler name used to build the kernel from its own config so the
+# CC_VERSION_TEXT check in the kernel's prepare: target matches exactly.
+# Falls back to the default $(CC) if the kernel config is unavailable.
+KERNEL_CC := $(shell grep -m1 '^CONFIG_CC_VERSION_TEXT=' \
+	$(KSRC)/include/config/auto.conf 2>/dev/null | cut -d'=' -f2 | cut -d' ' -f1)
+BUILD_CC := $(if $(KERNEL_CC),$(KERNEL_CC),$(CC))
+
 modules:
-	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KSRC) M=$(shell pwd)  modules
+	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) CC=$(BUILD_CC) -C $(KSRC) M=$(shell pwd)  modules
 	@echo "---------------------------------------------------------------------------"
 	@echo "Visit https://github.com/aircrack-ng/rtl8812au for support/reporting issues"
 	@echo "or check for newer versions (branches) of these drivers.                   "
