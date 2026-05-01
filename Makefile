@@ -21,7 +21,7 @@ EXTRA_CFLAGS += -Wno-vla -g
 
 EXTRA_CFLAGS += -I$(src)/include -I$(srctree)/$(src)/include
 EXTRA_CFLAGS += -I$(src)/hal/phydm -I$(srctree)/$(src)/hal/phydm
-EXTRA_LDFLAGS += --strip-all -O3
+EXTRA_LDFLAGS += --strip-debug -O3
 
 ########################## WIFI IC ############################
 CONFIG_RTL8812A = y
