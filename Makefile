@@ -1680,6 +1680,12 @@ endif
 
 ifneq ($(KERNELRELEASE),)
 
+# Kernels >= 6.x removed EXTRA_CFLAGS/EXTRA_LDFLAGS from Makefile.lib.
+# Forward them into ccflags-y/ldflags-y which are the supported mechanism.
+# On older kernels (5.10+) both variables are honoured, so duplication is harmless.
+ccflags-y += $(EXTRA_CFLAGS)
+ldflags-y += $(EXTRA_LDFLAGS)
+
 ########### this part for *.mk ############################
 include $(src)/hal/phydm/phydm.mk
 

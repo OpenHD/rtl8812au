@@ -20,6 +20,19 @@
 #define RHEL_RELEASE_VERSION(a,b) (((a) << 8) + (b))
 #define RHEL_RELEASE_CODE 0
 #endif
+
+/* Kernel ~6.15+: from_timer() was replaced by timer_container_of() */
+#ifndef timer_container_of
+#define timer_container_of(var, callback_timer, timer_fieldname) \
+	from_timer(var, callback_timer, timer_fieldname)
+#endif
+
+/* Kernel 6.2+: del_timer_sync() was replaced by timer_delete_sync();
+ * del_timer() was replaced by timer_delete(). */
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 2, 0))
+#define timer_delete_sync del_timer_sync
+#define timer_delete      del_timer
+#endif
 #include <linux/spinlock.h>
 #include <linux/compiler.h>
 #include <linux/kernel.h>
@@ -356,7 +369,7 @@ static inline void timer_hdl(unsigned long cntx)
 #endif
 {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0))
-	_timer *ptimer = from_timer(ptimer, in_timer, timer);
+	_timer *ptimer = timer_container_of(ptimer, in_timer, timer);
 #else
 	_timer *ptimer = (_timer *)cntx;
 #endif
@@ -385,7 +398,7 @@ __inline static void _set_timer(_timer *ptimer, u32 delay_time)
 
 __inline static void _cancel_timer(_timer *ptimer, u8 *bcancelled)
 {
-	*bcancelled = del_timer_sync(&ptimer->timer) == 1 ? 1 : 0;
+	*bcancelled = timer_delete_sync(&ptimer->timer) == 1 ? 1 : 0;
 }
 
 static inline void _init_workitem(_workitem *pwork, void *pfunc, void *cntx)
