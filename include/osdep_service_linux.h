@@ -54,6 +54,7 @@
 #include <linux/rtnetlink.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>	/* for struct tasklet_struct */
+#include <linux/timer.h>
 #include <linux/ip.h>
 #include <linux/kthread.h>
 #include <linux/list.h>
@@ -356,7 +357,18 @@ static inline void timer_hdl(unsigned long cntx)
 #endif
 {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0))
+	/*
+	 * Kernel timer helpers have changed names over time:
+	 * - older kernels provide from_timer()
+	 * - newer kernels provide timer_container_of()
+	 */
+#if defined(timer_container_of)
+	_timer *ptimer = timer_container_of(ptimer, in_timer, timer);
+#elif defined(from_timer)
 	_timer *ptimer = from_timer(ptimer, in_timer, timer);
+#else
+	_timer *ptimer = container_of(in_timer, _timer, timer);
+#endif
 #else
 	_timer *ptimer = (_timer *)cntx;
 #endif
@@ -385,7 +397,15 @@ __inline static void _set_timer(_timer *ptimer, u32 delay_time)
 
 __inline static void _cancel_timer(_timer *ptimer, u8 *bcancelled)
 {
+	/*
+	 * Timer deletion helpers were renamed in newer kernels.
+	 * del_timer_sync() -> timer_delete_sync()
+	 */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0))
+	*bcancelled = timer_delete_sync(&ptimer->timer) ? 1 : 0;
+#else
 	*bcancelled = del_timer_sync(&ptimer->timer) == 1 ? 1 : 0;
+#endif
 }
 
 static inline void _init_workitem(_workitem *pwork, void *pfunc, void *cntx)
