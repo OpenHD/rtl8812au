@@ -6,7 +6,7 @@ on:
       targets:
         description: Comma-separated OpenHD-ImageBuilder targets
         required: false
-        default: radxa-rock3a_base,rock5a_base,rock5b_base,radxa-cm3,radxa-zero3w_base,core3566
+        default: radxa-rock3a_base,rock5a_base,rock5b_base,radxa-cm3,radxa-zero3w_base,radxa-zero3w-lite_base,core3566
   push:
     paths:
       - ".github/workflows/build-rockchip-driver-debs.yml"
@@ -25,7 +25,7 @@ jobs:
       - id: targets
         shell: bash
         run: |
-          targets="${{ github.event.inputs.targets || 'radxa-rock3a_base,rock5a_base,rock5b_base,radxa-cm3,radxa-zero3w_base,core3566' }}"
+          targets="${{ github.event.inputs.targets || 'radxa-rock3a_base,rock5a_base,rock5b_base,radxa-cm3,radxa-zero3w_base,radxa-zero3w-lite_base,core3566' }}"
           json="$(printf '%s' "$targets" | jq -Rc 'split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0))')"
           echo "targets=${json}" >> "$GITHUB_OUTPUT"
 
@@ -49,6 +49,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: OpenHD/OpenHD-ImageBuilder
+          ref: dev-release
           path: imagebuilder
 
       - name: Cache base image archive
@@ -98,9 +99,16 @@ jobs:
             ca-certificates curl xz-utils parted e2fsprogs util-linux rsync \
             qemu-user-static binfmt-support file
 
+          REQUESTED_TARGET="${TARGET}"
           CONFIG="imagebuilder/images/${TARGET}"
+          if [[ ! -f "${CONFIG}" && "${TARGET}" == *_base ]]; then
+            TARGET="${TARGET%_base}"
+            CONFIG="imagebuilder/images/${TARGET}"
+          fi
           if [[ ! -f "${CONFIG}" ]]; then
-            echo "No OpenHD-ImageBuilder config for target ${TARGET}" >&2
+            echo "No OpenHD-ImageBuilder config for target ${REQUESTED_TARGET}" >&2
+            echo "Available targets:" >&2
+            ls -1 imagebuilder/images >&2
             exit 1
           fi
 
@@ -116,6 +124,7 @@ jobs:
           ROOT_PART="$(clean_value "${ROOT_PART}")"
           HAVE_CONF_PART="$(clean_value "${HAVE_CONF_PART:-false}")"
           CONF_PART="$(clean_value "${CONF_PART:-}")"
+          KERNEL_PACKAGES="$(clean_value "${KERNEL_PACKAGES:-}")"
 
           WORK_DIR="${GITHUB_WORKSPACE}/work/${TARGET}"
           OUT_DIR="${GITHUB_WORKSPACE}/out/${TARGET}"
@@ -163,7 +172,7 @@ jobs:
           fi
 
           sudo mkdir -p "${MNT_DIR}/opt/openhd-driver-build/src" "${MNT_DIR}/opt/openhd-driver-build/out"
-          sudo rsync -a --delete --exclude='.git' --exclude='.github' --exclude='*.o' --exclude='*.ko' \
+          sudo rsync -a --delete --exclude='.github' --exclude='*.o' --exclude='*.ko' \
             --exclude='*.mod' --exclude='*.mod.c' --exclude='Module.symvers' --exclude='modules.order' \
             driver/ "${MNT_DIR}/opt/openhd-driver-build/src/"
           sudo cp /usr/bin/qemu-aarch64-static "${MNT_DIR}/usr/bin/" || true
@@ -178,6 +187,7 @@ jobs:
           : "${DRIVER_PACKAGE:?}"
           : "${MODULE_NAME:?}"
           : "${USER_MODULE_NAME_VALUE:=}"
+          : "${KERNEL_PACKAGES:=}"
 
           SRC_DIR="/opt/openhd-driver-build/src"
           OUT_DIR="/opt/openhd-driver-build/out"
@@ -206,6 +216,9 @@ jobs:
 
           apt_update_tolerant
           apt-get install -y --no-install-recommends build-essential make gcc bc bison flex kmod dkms ca-certificates
+          if [[ -n "${KERNEL_PACKAGES}" ]]; then
+            apt-get install -y --no-install-recommends ${KERNEL_PACKAGES}
+          fi
 
           ensure_headers() {
             local kver="$1"
@@ -253,7 +266,7 @@ jobs:
           for kver in "${kernels[@]}"; do
             ensure_headers "${kver}"
             make -C "${SRC_DIR}" clean || true
-            make_args=(-C "${SRC_DIR}" -j"$(nproc)" ARCH=arm64 KVER="${kver}" KSRC="/lib/modules/${kver}/build")
+            make_args=(-C "${SRC_DIR}" -j"$(nproc)" ARCH=arm64 KVER="${kver}" KSRC="/lib/modules/${kver}/build" KCFLAGS="-Wno-error=implicit-fallthrough -Wno-error=stringop-overread")
             [[ -n "${USER_MODULE_NAME_VALUE}" ]] && make_args+=(USER_MODULE_NAME="${USER_MODULE_NAME_VALUE}")
             make "${make_args[@]}" modules
             ko="${SRC_DIR}/${MODULE_NAME}.ko"
@@ -271,9 +284,9 @@ jobs:
           sudo touch "${MNT_DIR}/etc/resolv.conf"
           sudo mount --bind /etc/resolv.conf "${MNT_DIR}/etc/resolv.conf"
 
-          export TARGET OS DISTRO DRIVER_PACKAGE MODULE_NAME USER_MODULE_NAME_VALUE
+          export TARGET OS DISTRO DRIVER_PACKAGE MODULE_NAME USER_MODULE_NAME_VALUE KERNEL_PACKAGES
           export GITHUB_SHA GITHUB_RUN_NUMBER GITHUB_REPOSITORY
-          sudo --preserve-env=TARGET,OS,DISTRO,DRIVER_PACKAGE,MODULE_NAME,USER_MODULE_NAME_VALUE,GITHUB_SHA,GITHUB_RUN_NUMBER,GITHUB_REPOSITORY \
+          sudo --preserve-env=TARGET,OS,DISTRO,DRIVER_PACKAGE,MODULE_NAME,USER_MODULE_NAME_VALUE,KERNEL_PACKAGES,GITHUB_SHA,GITHUB_RUN_NUMBER,GITHUB_REPOSITORY \
             chroot "${MNT_DIR}" /usr/bin/qemu-aarch64-static /bin/bash /opt/openhd-driver-build/build.sh
 
           sudo cp -v "${MNT_DIR}"/opt/openhd-driver-build/out/*.deb "${OUT_DIR}/"
