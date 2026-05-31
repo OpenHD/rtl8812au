@@ -1678,6 +1678,11 @@ ifneq ($(USER_MODULE_NAME),)
 MODULE_NAME := $(USER_MODULE_NAME)_ohd
 endif
 
+# Newer kernels (e.g. Arch 6.18+) no longer honor EXTRA_CFLAGS for external
+# modules. Mirror the fully-expanded EXTRA_CFLAGS into Kbuild's ccflags so
+# subdir objects (core/, hal/, ...) can find headers like include/drv_types.h.
+subdir-ccflags-y += $(EXTRA_CFLAGS)
+
 ifneq ($(KERNELRELEASE),)
 
 ########### this part for *.mk ############################
