@@ -190,13 +190,18 @@ jobs:
 
           ensure_headers() {
             local kver="$1"
-            [[ -e "/lib/modules/${kver}/build/Makefile" ]] && return 0
-            apt-get install -y --no-install-recommends "linux-headers-${kver}" || true
+            local build_dir="/lib/modules/${kver}/build"
+            [[ -e "${build_dir}/Makefile" ]] || apt-get install -y --no-install-recommends "linux-headers-${kver}" || true
             if [[ ! -e "/lib/modules/${kver}/build/Makefile" ]]; then
               header_dir="$(find /usr/src -maxdepth 1 -type d \( -name "linux-headers-${kver}" -o -name "*${kver}*" \) | head -n1 || true)"
               [[ -n "${header_dir}" ]] && ln -sfn "${header_dir}" "/lib/modules/${kver}/build"
             fi
-            [[ -e "/lib/modules/${kver}/build/Makefile" ]]
+            [[ -e "${build_dir}/Makefile" ]] || return 1
+
+            if [[ ! -x "${build_dir}/scripts/basic/fixdep" ]]; then
+              make -C "${build_dir}" scripts/basic/fixdep || make -C "${build_dir}" scripts
+              [[ -f "${build_dir}/scripts/basic/fixdep" ]] && chmod +x "${build_dir}/scripts/basic/fixdep"
+            fi
           }
 
           supported_extra_cflags() {
