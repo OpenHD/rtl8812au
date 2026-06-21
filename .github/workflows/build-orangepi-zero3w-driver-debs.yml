@@ -260,6 +260,20 @@ jobs:
             [[ -e "/lib/modules/${kver}/build/Makefile" ]]
           }
 
+          supported_extra_cflags() {
+            local flags=(
+              "-Wno-error=implicit-fallthrough"
+              "-Wno-error=misleading-indentation"
+            )
+
+            if gcc -Werror -Wstringop-overread -x c -c -o /tmp/openhd-gcc-warning-check.o - <<< 'int main(void) { return 0; }' >/dev/null 2>&1; then
+              flags+=("-Wno-error=stringop-overread")
+            fi
+            rm -f /tmp/openhd-gcc-warning-check.o
+
+            printf '%s ' "${flags[@]}"
+          }
+
           package_driver() {
             local kver="$1"
             local ko="$2"
@@ -295,7 +309,7 @@ jobs:
           for kver in "${kernels[@]}"; do
             ensure_headers "${kver}"
             make -C "${SRC_DIR}" clean || true
-            make_args=(-C "${SRC_DIR}" -j"$(nproc)" ARCH=arm64 KVER="${kver}" KSRC="/lib/modules/${kver}/build" USER_EXTRA_CFLAGS="-Wno-error=implicit-fallthrough -Wno-error=stringop-overread -Wno-error=misleading-indentation")
+            make_args=(-C "${SRC_DIR}" -j"$(nproc)" ARCH=arm64 KVER="${kver}" KSRC="/lib/modules/${kver}/build" USER_EXTRA_CFLAGS="$(supported_extra_cflags)")
             [[ -n "${USER_MODULE_NAME_VALUE}" ]] && make_args+=(USER_MODULE_NAME="${USER_MODULE_NAME_VALUE}")
             make "${make_args[@]}" modules
             ko="${SRC_DIR}/${MODULE_NAME}.ko"
