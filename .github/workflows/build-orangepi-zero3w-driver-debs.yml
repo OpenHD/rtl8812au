@@ -253,6 +253,16 @@ jobs:
             local kver="$1"
             local build_dir="/lib/modules/${kver}/build"
             [[ -e "${build_dir}/Makefile" ]] || apt-get install -y --no-install-recommends "linux-headers-${kver}" || true
+            if [[ ! -e "${build_dir}/Makefile" && "${kver}" =~ ^[0-9].*-([A-Za-z0-9._-]+)$ ]]; then
+              local kernel_suffix="${BASH_REMATCH[1]}"
+              for header_pkg in \
+                "linux-headers-current-${kernel_suffix}" \
+                "linux-headers-vendor-${kernel_suffix}" \
+                "linux-headers-legacy-${kernel_suffix}" \
+                "linux-headers-edge-${kernel_suffix}"; do
+                apt-get install -y --no-install-recommends "${header_pkg}" && break || true
+              done
+            fi
             if [[ ! -e "/lib/modules/${kver}/build/Makefile" ]]; then
               header_dir="$(find /usr/src -maxdepth 1 -type d \( -name "linux-headers-${kver}" -o -name "*${kver}*" \) | head -n1 || true)"
               [[ -n "${header_dir}" ]] && ln -sfn "${header_dir}" "/lib/modules/${kver}/build"
