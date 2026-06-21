@@ -241,6 +241,14 @@ jobs:
               -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
           }
 
+          disable_stale_apt_sources() {
+            find /etc/apt -type f \( -name '*.list' -o -name '*.sources' \) -print0 \
+              | xargs -0 -r sed -i \
+                -e '/dl\.cloudsmith\.io\/public\/openhd\/release/s/^/# disabled by driver CI: /' \
+                -e '/deb\.debian\.org\/debian[[:space:]].*bullseye-backports/s/^/# disabled by driver CI: /'
+          }
+
+          disable_stale_apt_sources
           apt_update_tolerant
           apt-get install -y --no-install-recommends build-essential make gcc bc bison flex kmod dkms ca-certificates
           curl -1sLf "https://dl.cloudsmith.io/public/openhd/dev-release/setup.deb.sh" | bash || true
@@ -270,9 +278,18 @@ jobs:
             [[ -e "${build_dir}/Makefile" ]] || return 1
 
             if [[ ! -x "${build_dir}/scripts/basic/fixdep" ]]; then
-              make -C "${build_dir}" scripts/basic/fixdep || make -C "${build_dir}" scripts
+              make -C "${build_dir}" scripts/basic/fixdep || make -C "${build_dir}" scripts || true
+              if [[ ! -x "${build_dir}/scripts/basic/fixdep" && -f "${build_dir}/scripts/basic/fixdep.c" ]]; then
+                gcc -O2 -Wall -Wmissing-prototypes -Wstrict-prototypes \
+                  -o "${build_dir}/scripts/basic/fixdep" "${build_dir}/scripts/basic/fixdep.c"
+              fi
+              if [[ ! -x "${build_dir}/scripts/basic/fixdep" ]]; then
+                fixdep_candidate="$(find /usr/src /lib/modules -path '*/scripts/basic/fixdep' -type f -executable 2>/dev/null | head -n1 || true)"
+                [[ -n "${fixdep_candidate}" ]] && cp "${fixdep_candidate}" "${build_dir}/scripts/basic/fixdep"
+              fi
               [[ -f "${build_dir}/scripts/basic/fixdep" ]] && chmod +x "${build_dir}/scripts/basic/fixdep"
             fi
+            [[ -x "${build_dir}/scripts/basic/fixdep" ]]
           }
 
           supported_extra_cflags() {
