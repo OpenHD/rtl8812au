@@ -55,7 +55,9 @@ jobs:
       - name: Cache base image archive
         uses: actions/cache@v4
         with:
-          path: work/${{ matrix.target }}/*.img.xz
+          path: |
+            work/${{ matrix.target }}/*.img.xz
+            work/${{ matrix.target }}/*.7z
           key: orangepi-zero3w-base-${{ matrix.target }}-${{ hashFiles('imagebuilder/images/**') }}
           restore-keys: |
             orangepi-zero3w-base-${{ matrix.target }}-
@@ -64,6 +66,7 @@ jobs:
         shell: bash
         env:
           TARGET: ${{ matrix.target }}
+          OPENHD_RCLONE_CONFIG_GDRIVE: ${{ secrets.OPENHD_RCLONE_CONFIG_GDRIVE }}
         run: |
           set -euo pipefail
 
@@ -74,7 +77,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             ca-certificates curl xz-utils parted e2fsprogs util-linux rsync \
-            qemu-user-static binfmt-support file
+            qemu-user-static binfmt-support file p7zip-full rclone
 
           REQUESTED_TARGET="${TARGET}"
           CONFIG="imagebuilder/images/${TARGET}"
@@ -92,7 +95,9 @@ jobs:
           # shellcheck disable=SC1090
           source "${CONFIG}"
           clean_value() { printf '%s' "${1:-}" | tr -d '\r'; }
-          BASE_IMAGE_URL="$(clean_value "${BASE_IMAGE_URL}")"
+          BASE_IMAGE_URL="$(clean_value "${BASE_IMAGE_URL:-}")"
+          BASE_IMAGE_GDRIVE_URL="$(clean_value "${BASE_IMAGE_GDRIVE_URL:-}")"
+          BASE_IMAGE_GDRIVE_RCLONE_PATH="$(clean_value "${BASE_IMAGE_GDRIVE_RCLONE_PATH:-}")"
           BASE_IMAGE="$(clean_value "${BASE_IMAGE}")"
           BASE_IMAGE_SHA256="$(clean_value "${BASE_IMAGE_SHA256:-}")"
           BASE_IMAGE_SHA512="$(clean_value "${BASE_IMAGE_SHA512:-}")"
@@ -110,15 +115,71 @@ jobs:
           mkdir -p "${WORK_DIR}" "${OUT_DIR}" "${MNT_DIR}"
 
           archive="${WORK_DIR}/${BASE_IMAGE}"
-          image="${WORK_DIR}/${BASE_IMAGE%.xz}"
-          if [[ ! -f "${archive}" ]]; then
+          image="${WORK_DIR}/IMAGE.img"
+
+          validate_archive() {
+            local file="$1"
+            local magic
+
+            [[ -s "${file}" ]] || return 1
+            magic="$(head -c 8 "${file}" | od -An -tx1 | tr -d ' \n')"
+            case "${file}" in
+              *.7z) [[ "${magic}" == 377abcaf271c* ]] ;;
+              *.img.xz|*.xz) [[ "${magic}" == fd377a585a00* ]] ;;
+              *.zip) [[ "${magic}" == 504b0304* || "${magic}" == 504b0506* || "${magic}" == 504b0708* ]] ;;
+              *.gz) [[ "${magic}" == 1f8b* ]] ;;
+              *.bz2) [[ "${magic}" == 425a68* ]] ;;
+              *) true ;;
+            esac
+          }
+
+          download_archive() {
+            if [[ -n "${BASE_IMAGE_GDRIVE_URL}" ]]; then
+              bash imagebuilder/scripts/gdrive.sh "${BASE_IMAGE_GDRIVE_URL}" "${archive}" "${BASE_IMAGE_GDRIVE_RCLONE_PATH}"
+              validate_archive "${archive}"
+              return
+            fi
+
+            if [[ -z "${BASE_IMAGE_URL}" ]]; then
+              echo "Neither BASE_IMAGE_URL nor BASE_IMAGE_GDRIVE_URL is set by ${CONFIG}" >&2
+              exit 1
+            fi
+
             separator="/"
             [[ "${BASE_IMAGE_URL}" == */ ]] && separator=""
             curl -L --fail --retry 3 -o "${archive}" "${BASE_IMAGE_URL}${separator}${BASE_IMAGE}"
+            validate_archive "${archive}"
+          }
+
+          extract_image() {
+            rm -f "${image}"
+            case "${BASE_IMAGE}" in
+              *.img.xz)
+                xz -dc "${archive}" > "${image}"
+                ;;
+              *.7z)
+                rm -f "${WORK_DIR}"/*.[iI][mM][gG]
+                7z e -y -o"${WORK_DIR}" "${archive}"
+                extracted="$(find "${WORK_DIR}" -maxdepth 1 -type f -iname '*.img' | head -n1)"
+                [[ -n "${extracted}" ]] || { echo "No .img extracted from ${archive}" >&2; exit 1; }
+                mv "${extracted}" "${image}"
+                ;;
+              *)
+                echo "Unsupported base image archive type: ${BASE_IMAGE}" >&2
+                exit 1
+                ;;
+            esac
+          }
+
+          if [[ ! -f "${archive}" ]]; then
+            download_archive
+          elif ! validate_archive "${archive}"; then
+            rm -f "${archive}"
+            download_archive
           fi
           [[ -n "${BASE_IMAGE_SHA256}" ]] && echo "${BASE_IMAGE_SHA256}  ${archive}" | sha256sum -c -
           [[ -n "${BASE_IMAGE_SHA512}" ]] && echo "${BASE_IMAGE_SHA512}  ${archive}" | sha512sum -c -
-          [[ -f "${image}" ]] || xz -dk "${archive}"
+          [[ -f "${image}" ]] || extract_image
 
           partition_field() {
             local part="$1"
