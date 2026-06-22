@@ -302,6 +302,39 @@ jobs:
               [[ -f "${build_dir}/scripts/basic/fixdep" ]] && chmod +x "${build_dir}/scripts/basic/fixdep"
             fi
             fixdep_is_usable "${build_dir}/scripts/basic/fixdep"
+
+            if [[ ! -f "${build_dir}/include/generated/autoconf.h" || ! -f "${build_dir}/include/config/auto.conf" ]]; then
+              if [[ ! -f "${build_dir}/.config" && -f "/boot/config-${kver}" ]]; then
+                cp "/boot/config-${kver}" "${build_dir}/.config"
+              fi
+              make -C "${build_dir}" ARCH=arm64 olddefconfig prepare modules_prepare || true
+            fi
+
+            if [[ ! -f "${build_dir}/include/generated/autoconf.h" || ! -f "${build_dir}/include/config/auto.conf" ]]; then
+              [[ -f "${build_dir}/.config" ]] || return 1
+              mkdir -p "${build_dir}/include/generated" "${build_dir}/include/config"
+              awk '
+                /^CONFIG_[A-Za-z0-9_]+=y$/ {
+                  name=$1
+                  sub(/=y$/, "", name)
+                  print "#define " name " 1"
+                  next
+                }
+                /^CONFIG_[A-Za-z0-9_]+=m$/ {
+                  name=$1
+                  sub(/=m$/, "", name)
+                  print "#define " name "_MODULE 1"
+                  next
+                }
+                /^CONFIG_[A-Za-z0-9_]+=/ {
+                  split($0, parts, "=")
+                  print "#define " parts[1] " " parts[2]
+                }
+              ' "${build_dir}/.config" > "${build_dir}/include/generated/autoconf.h"
+              cp "${build_dir}/.config" "${build_dir}/include/config/auto.conf"
+            fi
+
+            [[ -f "${build_dir}/include/generated/autoconf.h" && -f "${build_dir}/include/config/auto.conf" ]]
           }
 
           supported_extra_cflags() {
