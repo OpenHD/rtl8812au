@@ -277,19 +277,31 @@ jobs:
             fi
             [[ -e "${build_dir}/Makefile" ]] || return 1
 
-            if [[ ! -x "${build_dir}/scripts/basic/fixdep" ]]; then
+            fixdep_is_usable() {
+              local fixdep="$1"
+              local status=0
+              [[ -x "${fixdep}" ]] || return 1
+              "${fixdep}" >/dev/null 2>&1 || status=$?
+              [[ "${status}" -ne 126 && "${status}" -ne 127 ]]
+            }
+
+            if ! fixdep_is_usable "${build_dir}/scripts/basic/fixdep"; then
+              rm -f "${build_dir}/scripts/basic/fixdep"
               make -C "${build_dir}" scripts/basic/fixdep || make -C "${build_dir}" scripts || true
-              if [[ ! -x "${build_dir}/scripts/basic/fixdep" && -f "${build_dir}/scripts/basic/fixdep.c" ]]; then
+              if ! fixdep_is_usable "${build_dir}/scripts/basic/fixdep" && [[ -f "${build_dir}/scripts/basic/fixdep.c" ]]; then
                 gcc -O2 -Wall -Wmissing-prototypes -Wstrict-prototypes \
                   -o "${build_dir}/scripts/basic/fixdep" "${build_dir}/scripts/basic/fixdep.c"
               fi
-              if [[ ! -x "${build_dir}/scripts/basic/fixdep" ]]; then
-                fixdep_candidate="$(find /usr/src /lib/modules -path '*/scripts/basic/fixdep' -type f -executable 2>/dev/null | head -n1 || true)"
-                [[ -n "${fixdep_candidate}" ]] && cp "${fixdep_candidate}" "${build_dir}/scripts/basic/fixdep"
+              if ! fixdep_is_usable "${build_dir}/scripts/basic/fixdep"; then
+                while IFS= read -r fixdep_candidate; do
+                  cp "${fixdep_candidate}" "${build_dir}/scripts/basic/fixdep"
+                  chmod +x "${build_dir}/scripts/basic/fixdep"
+                  fixdep_is_usable "${build_dir}/scripts/basic/fixdep" && break
+                done < <(find /usr/src /lib/modules -path '*/scripts/basic/fixdep' -type f -executable 2>/dev/null)
               fi
               [[ -f "${build_dir}/scripts/basic/fixdep" ]] && chmod +x "${build_dir}/scripts/basic/fixdep"
             fi
-            [[ -x "${build_dir}/scripts/basic/fixdep" ]]
+            fixdep_is_usable "${build_dir}/scripts/basic/fixdep"
           }
 
           supported_extra_cflags() {
