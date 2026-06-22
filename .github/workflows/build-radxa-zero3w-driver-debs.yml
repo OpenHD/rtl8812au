@@ -216,31 +216,31 @@ jobs:
             fi
             [[ -e "${build_dir}/Makefile" ]] || return 1
 
-            fixdep_is_usable() {
-              local fixdep="$1"
+            kbuild_tool_is_usable() {
+              local tool="$1"
               local status=0
-              [[ -x "${fixdep}" ]] || return 1
-              "${fixdep}" >/dev/null 2>&1 || status=$?
+              [[ -x "${tool}" ]] || return 1
+              "${tool}" >/dev/null 2>&1 || status=$?
               [[ "${status}" -ne 126 && "${status}" -ne 127 ]]
             }
 
-            if ! fixdep_is_usable "${build_dir}/scripts/basic/fixdep"; then
+            if ! kbuild_tool_is_usable "${build_dir}/scripts/basic/fixdep"; then
               rm -f "${build_dir}/scripts/basic/fixdep"
               make -C "${build_dir}" scripts/basic/fixdep || make -C "${build_dir}" scripts || true
-              if ! fixdep_is_usable "${build_dir}/scripts/basic/fixdep" && [[ -f "${build_dir}/scripts/basic/fixdep.c" ]]; then
+              if ! kbuild_tool_is_usable "${build_dir}/scripts/basic/fixdep" && [[ -f "${build_dir}/scripts/basic/fixdep.c" ]]; then
                 gcc -O2 -Wall -Wmissing-prototypes -Wstrict-prototypes \
                   -o "${build_dir}/scripts/basic/fixdep" "${build_dir}/scripts/basic/fixdep.c"
               fi
-              if ! fixdep_is_usable "${build_dir}/scripts/basic/fixdep"; then
+              if ! kbuild_tool_is_usable "${build_dir}/scripts/basic/fixdep"; then
                 while IFS= read -r fixdep_candidate; do
                   cp "${fixdep_candidate}" "${build_dir}/scripts/basic/fixdep"
                   chmod +x "${build_dir}/scripts/basic/fixdep"
-                  fixdep_is_usable "${build_dir}/scripts/basic/fixdep" && break
+                  kbuild_tool_is_usable "${build_dir}/scripts/basic/fixdep" && break
                 done < <(find /usr/src /lib/modules -path '*/scripts/basic/fixdep' -type f -executable 2>/dev/null)
               fi
               [[ -f "${build_dir}/scripts/basic/fixdep" ]] && chmod +x "${build_dir}/scripts/basic/fixdep"
             fi
-            fixdep_is_usable "${build_dir}/scripts/basic/fixdep"
+            kbuild_tool_is_usable "${build_dir}/scripts/basic/fixdep"
 
             if [[ ! -f "${build_dir}/include/generated/autoconf.h" || ! -f "${build_dir}/include/config/auto.conf" ]]; then
               if [[ ! -f "${build_dir}/.config" && -f "/boot/config-${kver}" ]]; then
@@ -274,6 +274,20 @@ jobs:
             fi
 
             [[ -f "${build_dir}/include/generated/autoconf.h" && -f "${build_dir}/include/config/auto.conf" ]]
+
+            if ! kbuild_tool_is_usable "${build_dir}/scripts/mod/modpost"; then
+              rm -f "${build_dir}/scripts/mod/modpost"
+              make -C "${build_dir}" ARCH=arm64 scripts/mod/modpost || make -C "${build_dir}" ARCH=arm64 scripts || true
+              if ! kbuild_tool_is_usable "${build_dir}/scripts/mod/modpost"; then
+                while IFS= read -r modpost_candidate; do
+                  cp "${modpost_candidate}" "${build_dir}/scripts/mod/modpost"
+                  chmod +x "${build_dir}/scripts/mod/modpost"
+                  kbuild_tool_is_usable "${build_dir}/scripts/mod/modpost" && break
+                done < <(find /usr/src /lib/modules -path '*/scripts/mod/modpost' -type f -executable 2>/dev/null)
+              fi
+              [[ -f "${build_dir}/scripts/mod/modpost" ]] && chmod +x "${build_dir}/scripts/mod/modpost"
+            fi
+            kbuild_tool_is_usable "${build_dir}/scripts/mod/modpost"
           }
 
           supported_extra_cflags() {
