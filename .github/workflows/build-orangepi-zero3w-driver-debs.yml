@@ -271,6 +271,18 @@ jobs:
                 apt-get install -y --no-install-recommends "${header_pkg}" && break || true
               done
             fi
+            if [[ ! -e "${build_dir}/Makefile" && "${kver}" == *-sun60iw2 ]]; then
+              header_deb="$(mktemp /tmp/linux-headers-current-sun60iw2.XXXXXX.deb)"
+              for header_url in \
+                "https://fox-exe.ru/Files/OrangePi4Pro/linux-headers-current-sun60iw2_1.0.8_arm64.deb" \
+                "https://github.com/blippu/orangepi4pro/raw/main/linux-headers-current-sun60iw2_1.0.4_arm64.deb"; do
+                if curl -fsSL --retry 3 -o "${header_deb}" "${header_url}"; then
+                  apt-get install -y --no-install-recommends "${header_deb}" || true
+                  find /usr/src -maxdepth 1 -type d -name "*${kver}*" -exec test -e "{}/Makefile" \; -print -quit | grep -q . && break
+                fi
+              done
+              rm -f "${header_deb}"
+            fi
             if [[ ! -e "/lib/modules/${kver}/build/Makefile" ]]; then
               header_dir="$(find /usr/src -maxdepth 1 -type d \( -name "linux-headers-${kver}" -o -name "*${kver}*" \) | head -n1 || true)"
               [[ -n "${header_dir}" ]] && ln -sfn "${header_dir}" "/lib/modules/${kver}/build"
