@@ -282,7 +282,7 @@ jobs:
                   if [[ -n "${header_dir}" ]]; then
                     mkdir -p "/lib/modules/${kver}"
                     ln -sfn "${header_dir}" "${build_dir}"
-                    rm -f "${build_dir}/scripts/basic/fixdep" "${build_dir}/scripts/mod/modpost"
+                    find "${build_dir}/scripts" -type f -executable -delete 2>/dev/null || true
                     break
                   fi
                 fi
