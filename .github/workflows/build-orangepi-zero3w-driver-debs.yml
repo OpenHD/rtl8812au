@@ -189,6 +189,9 @@ jobs:
 
           cleanup() {
             sudo sync || true
+            if [[ "${CREATED_HOST_AARCH64_LOADER_LINK:-false}" == "true" ]]; then
+              sudo rm -f /lib/ld-linux-aarch64.so.1 || true
+            fi
             sudo mountpoint -q "${MNT_DIR}/etc/resolv.conf" && sudo umount -l "${MNT_DIR}/etc/resolv.conf" || true
             sudo mountpoint -q "${MNT_DIR}/sys" && sudo umount -l "${MNT_DIR}/sys" || true
             sudo mountpoint -q "${MNT_DIR}/dev/pts" && sudo umount -l "${MNT_DIR}/dev/pts" || true
@@ -451,6 +454,12 @@ jobs:
           sudo rm -f "${MNT_DIR}/etc/resolv.conf"
           sudo touch "${MNT_DIR}/etc/resolv.conf"
           sudo mount --bind /etc/resolv.conf "${MNT_DIR}/etc/resolv.conf"
+
+          CREATED_HOST_AARCH64_LOADER_LINK=false
+          if [[ ! -e /lib/ld-linux-aarch64.so.1 && -e "${MNT_DIR}/lib/aarch64-linux-gnu/ld-linux-aarch64.so.1" ]]; then
+            sudo ln -s "${MNT_DIR}/lib/aarch64-linux-gnu/ld-linux-aarch64.so.1" /lib/ld-linux-aarch64.so.1
+            CREATED_HOST_AARCH64_LOADER_LINK=true
+          fi
 
           export TARGET DISTRO DRIVER_PACKAGE MODULE_NAME USER_MODULE_NAME_VALUE KERNEL_PACKAGES
           export GITHUB_SHA GITHUB_RUN_NUMBER GITHUB_REPOSITORY
