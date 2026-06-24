@@ -1258,13 +1258,13 @@ static u8 _rtw_mi_p2p_chk_state(_adapter *adapter, void *data)
 }
 u8 rtw_mi_p2p_chk_state(_adapter *padapter, enum P2P_STATE p2p_state)
 {
-	u8 in_data = p2p_state;
+	enum P2P_STATE in_data = p2p_state;
 
 	return _rtw_mi_process(padapter, _FALSE, &in_data, _rtw_mi_p2p_chk_state);
 }
 u8 rtw_mi_buddy_p2p_chk_state(_adapter *padapter, enum P2P_STATE p2p_state)
 {
-	u8 in_data  = p2p_state;
+	enum P2P_STATE in_data = p2p_state;
 
 	return _rtw_mi_process(padapter, _TRUE, &in_data, _rtw_mi_p2p_chk_state);
 }
