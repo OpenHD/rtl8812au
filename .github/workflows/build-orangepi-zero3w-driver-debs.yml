@@ -282,6 +282,7 @@ jobs:
                   if [[ -n "${header_dir}" ]]; then
                     mkdir -p "/lib/modules/${kver}"
                     ln -sfn "${header_dir}" "${build_dir}"
+                    rm -f "${build_dir}/scripts/basic/fixdep" "${build_dir}/scripts/mod/modpost"
                     break
                   fi
                 fi
@@ -299,7 +300,7 @@ jobs:
               local status=0
               [[ -x "${tool}" ]] || return 1
               "${tool}" >/dev/null 2>&1 || status=$?
-              [[ "${status}" -ne 126 && "${status}" -ne 127 ]]
+              [[ "${status}" -ne 126 && "${status}" -ne 127 && "${status}" -ne 255 ]]
             }
 
             if ! kbuild_tool_is_usable "${build_dir}/scripts/basic/fixdep"; then
