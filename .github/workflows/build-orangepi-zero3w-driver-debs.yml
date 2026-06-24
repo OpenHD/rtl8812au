@@ -189,9 +189,6 @@ jobs:
 
           cleanup() {
             sudo sync || true
-            if [[ "${CREATED_HOST_AARCH64_LOADER_LINK:-false}" == "true" ]]; then
-              sudo rm -f /lib/ld-linux-aarch64.so.1 || true
-            fi
             sudo mountpoint -q "${MNT_DIR}/etc/resolv.conf" && sudo umount -l "${MNT_DIR}/etc/resolv.conf" || true
             sudo mountpoint -q "${MNT_DIR}/sys" && sudo umount -l "${MNT_DIR}/sys" || true
             sudo mountpoint -q "${MNT_DIR}/dev/pts" && sudo umount -l "${MNT_DIR}/dev/pts" || true
@@ -267,9 +264,10 @@ jobs:
           ensure_headers() {
             local kver="$1"
             local build_dir="/lib/modules/${kver}/build"
+            local kernel_suffix=""
             [[ -e "${build_dir}/Makefile" ]] || apt-get install -y --no-install-recommends "linux-headers-${kver}" || true
             if [[ ! -e "${build_dir}/Makefile" && "${kver}" =~ ^[0-9].*-([A-Za-z0-9._-]+)$ ]]; then
-              local kernel_suffix="${BASH_REMATCH[1]}"
+              kernel_suffix="${BASH_REMATCH[1]}"
               for header_pkg in \
                 "linux-headers-current-${kernel_suffix}" \
                 "linux-headers-vendor-${kernel_suffix}" \
@@ -278,29 +276,9 @@ jobs:
                 apt-get install -y --no-install-recommends "${header_pkg}" && break || true
               done
             fi
-            if [[ ! -e "${build_dir}/Makefile" && "${kver}" == *-sun60iw2 ]]; then
-              header_deb="$(mktemp /tmp/linux-headers-current-sun60iw2.XXXXXX.deb)"
-              for header_url in \
-                "https://github.com/blippu/orangepi4pro/raw/main/linux-headers-current-sun60iw2_1.0.4_arm64.deb" \
-                "https://fox-exe.ru/Files/OrangePi4Pro/linux-headers-current-sun60iw2_1.0.8_arm64.deb"; do
-                if curl -fsSL --retry 3 -o "${header_deb}" "${header_url}"; then
-                  dpkg-deb -x "${header_deb}" /
-                  header_dir=""
-                  while IFS= read -r candidate_header_dir; do
-                    if [[ -e "${candidate_header_dir}/Makefile" ]]; then
-                      header_dir="${candidate_header_dir}"
-                      break
-                    fi
-                  done < <(find /usr/src -maxdepth 1 -type d \( -name "linux-headers-${kver}" -o -name "*sun60iw2*" \) 2>/dev/null)
-                  if [[ -n "${header_dir}" ]]; then
-                    mkdir -p "/lib/modules/${kver}"
-                    ln -sfn "${header_dir}" "${build_dir}"
-                    find "${build_dir}/scripts" -type f -executable -delete 2>/dev/null || true
-                    break
-                  fi
-                fi
-              done
-              rm -f "${header_deb}"
+            if [[ ! -e "${build_dir}/Makefile" ]]; then
+              header_deb="$(find /opt /boot /usr/local -maxdepth 3 -type f \( -name "linux-headers*${kver}*.deb" -o -name "linux-headers*${kernel_suffix}*.deb" \) 2>/dev/null | head -n1 || true)"
+              [[ -n "${header_deb}" ]] && dpkg -i "${header_deb}" || true
             fi
             if [[ ! -e "/lib/modules/${kver}/build/Makefile" ]]; then
               header_dir="$(find /usr/src -maxdepth 1 -type d \( -name "linux-headers-${kver}" -o -name "*${kver}*" \) | head -n1 || true)"
@@ -434,8 +412,12 @@ jobs:
 
           mapfile -t kernels < <(find /lib/modules -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
           [[ "${#kernels[@]}" -gt 0 ]]
+          built_count=0
           for kver in "${kernels[@]}"; do
-            ensure_headers "${kver}"
+            if ! ensure_headers "${kver}"; then
+              echo "::warning::Skipping ${kver}; kernel headers are unavailable"
+              continue
+            fi
             make -C "${SRC_DIR}" clean || true
             make_args=(-C "${SRC_DIR}" -j"$(nproc)" ARCH=arm64 KVER="${kver}" KSRC="/lib/modules/${kver}/build" USER_EXTRA_CFLAGS="$(supported_extra_cflags)")
             [[ -n "${USER_MODULE_NAME_VALUE}" ]] && make_args+=(USER_MODULE_NAME="${USER_MODULE_NAME_VALUE}")
@@ -443,7 +425,9 @@ jobs:
             ko="${SRC_DIR}/${MODULE_NAME}.ko"
             [[ -f "${ko}" ]] || ko="$(find "${SRC_DIR}" -maxdepth 1 -name '*.ko' | head -n1)"
             package_driver "${kver}" "${ko}"
+            built_count=$((built_count + 1))
           done
+          [[ "${built_count}" -gt 0 ]] || { echo "No kernel modules were packaged; no usable kernel headers found" >&2; exit 1; }
           CHROOT_SCRIPT
 
           sudo chmod 0755 "${MNT_DIR}/opt/openhd-driver-build/build.sh"
@@ -454,15 +438,6 @@ jobs:
           sudo rm -f "${MNT_DIR}/etc/resolv.conf"
           sudo touch "${MNT_DIR}/etc/resolv.conf"
           sudo mount --bind /etc/resolv.conf "${MNT_DIR}/etc/resolv.conf"
-
-          CREATED_HOST_AARCH64_LOADER_LINK=false
-          if [[ ! -e /lib/ld-linux-aarch64.so.1 ]]; then
-            image_loader="$(find "${MNT_DIR}" -path '*/ld-linux-aarch64.so.1' -type f | head -n1 || true)"
-            if [[ -n "${image_loader}" ]]; then
-              sudo ln -s "${image_loader}" /lib/ld-linux-aarch64.so.1
-              CREATED_HOST_AARCH64_LOADER_LINK=true
-            fi
-          fi
 
           export TARGET DISTRO DRIVER_PACKAGE MODULE_NAME USER_MODULE_NAME_VALUE KERNEL_PACKAGES
           export GITHUB_SHA GITHUB_RUN_NUMBER GITHUB_REPOSITORY
