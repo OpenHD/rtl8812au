@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     name: Build for OpenHD Pi kernel (Bullseye armhf)
     env:
@@ -16,6 +16,7 @@ jobs:
       KERNEL_REPOSITORY: https://github.com/OpenHD/linux.git
       KERNEL_BRANCH: rpi-6.1-stable
       KERNEL_RELEASE: 6.1.29-v7l+
+      TOOLCHAIN_ID: gcc13
       KBUILD_PACKAGE: openhd-rpi-bullseye-armhf-kbuild
       CLOUDSMITH_REPOSITORY: openhd/dev-release
       CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
@@ -44,7 +45,10 @@ jobs:
           test -n "$kernel_commit"
 
           kernel_short="${kernel_commit:0:12}"
-          cache_version="6.1.29-v7l-$kernel_short"
+          compiler_major="$(arm-linux-gnueabihf-gcc -dumpversion | cut -d. -f1)"
+          test "$compiler_major" = "13"
+
+          cache_version="6.1.29-v7l-$TOOLCHAIN_ID-$kernel_short"
           cache_archive="$RUNNER_TEMP/$KBUILD_PACKAGE-$kernel_commit.tar.zst"
 
           echo "commit=$kernel_commit" >> "$GITHUB_OUTPUT"
@@ -106,6 +110,8 @@ jobs:
             echo "architecture=armhf"
             echo "arch=$ARCH"
             echo "cross_compile=$CROSS_COMPILE"
+            echo "toolchain_id=$TOOLCHAIN_ID"
+            echo "compiler=$(arm-linux-gnueabihf-gcc -dumpfullversion)"
           } > "$prepared_dir/.openhd-kbuild-info"
 
           tar --zstd -C "$prepared_dir" -cf "${{ steps.kernel.outputs.archive }}" .
@@ -126,6 +132,7 @@ jobs:
           grep -Fx "kernel_commit=${{ steps.kernel.outputs.commit }}" "$info"
           grep -Fx "kernel_release=$KERNEL_RELEASE" "$info"
           grep -Fx "architecture=armhf" "$info"
+          grep -Fx "toolchain_id=$TOOLCHAIN_ID" "$info"
           test -s "$kernel_dir/Module.symvers"
           test -x "$kernel_dir/scripts/mod/modpost"
           test "$(make -s -C "$kernel_dir" kernelrelease)" = "$KERNEL_RELEASE"
@@ -140,6 +147,10 @@ jobs:
 
           test -s 88XXau_ohd.ko
           test "$(modinfo -F vermagic 88XXau_ohd.ko | awk '{print $1}')" = "$KERNEL_RELEASE"
+          if arm-linux-gnueabihf-nm -u 88XXau_ohd.ko | grep -qw __stack_chk_guard; then
+            echo "Module imports __stack_chk_guard and will not load on the OpenHD Pi kernel" >&2
+            exit 1
+          fi
 
       - name: Publish prepared environment to Cloudsmith
         if: steps.kbuild_cache.outputs.hit == 'false'
