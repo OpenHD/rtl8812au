@@ -4701,7 +4701,10 @@ s32 rtw_monitor_xmit_entry(struct sk_buff *skb, struct net_device *ndev)
 		}
 	}
 
-	if (!rtap_bw_specified && pmlmeext->cur_bwmode > CHANNEL_WIDTH_20) {
+	if (!rtap_bw_specified &&
+	    (pmlmeext->cur_bwmode == CHANNEL_WIDTH_40 ||
+	     pmlmeext->cur_bwmode == CHANNEL_WIDTH_80 ||
+	     pmlmeext->cur_bwmode == CHANNEL_WIDTH_160)) {
 		pattrib->bwmode = pmlmeext->cur_bwmode;
 		if (pattrib->bwmode >= CHANNEL_WIDTH_40 &&
 		    pattrib->ch_offset == HAL_PRIME_CHNL_OFFSET_DONT_CARE)
@@ -4711,7 +4714,10 @@ s32 rtw_monitor_xmit_entry(struct sk_buff *skb, struct net_device *ndev)
 	/* OpenHD: if a channel-width override is set, don't let radiotap force 20MHz */
 	{
 		int openhd_bw = get_openhd_override_channel_width();
-		if (openhd_bw > CHANNEL_WIDTH_20 && pattrib->bwmode == CHANNEL_WIDTH_20) {
+		if ((openhd_bw == CHANNEL_WIDTH_40 ||
+		     openhd_bw == CHANNEL_WIDTH_80 ||
+		     openhd_bw == CHANNEL_WIDTH_160) &&
+		    pattrib->bwmode == CHANNEL_WIDTH_20) {
 			pattrib->bwmode = (u8)openhd_bw;
 			if (pattrib->bwmode >= CHANNEL_WIDTH_40 &&
 			    pattrib->ch_offset == HAL_PRIME_CHNL_OFFSET_DONT_CARE) {

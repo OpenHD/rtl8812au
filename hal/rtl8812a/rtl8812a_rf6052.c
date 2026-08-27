@@ -46,8 +46,9 @@ PHY_RF6052SetBandwidth8812(
 		phy_set_rf_reg(Adapter, RF_PATH_B, RF_CHNLBW_Jaguar, BIT11 | BIT10, 3);
 		break;
 
+	case CHANNEL_WIDTH_5:
 	case CHANNEL_WIDTH_10:
-		/* Treat 10MHz as 20MHz on RF BW register */
+		/* Narrowband is a baseband re-clock; RF stays in 20MHz mode. */
 		phy_set_rf_reg(Adapter, RF_PATH_A, RF_CHNLBW_Jaguar, BIT11 | BIT10, 3);
 		phy_set_rf_reg(Adapter, RF_PATH_B, RF_CHNLBW_Jaguar, BIT11 | BIT10, 3);
 		break;

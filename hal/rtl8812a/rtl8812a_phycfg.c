@@ -30,15 +30,11 @@ static void phy_set_mac_clk_8812a(PADAPTER adapter, enum channel_width bw)
 	u32 value32 = rtw_read32(adapter, REG_AFE_CTRL1_8812A);
 
 	value32 &= ~(BIT_MASK_MAC_CLK_SEL_8812A << BIT_SHIFT_MAC_CLK_SEL_8812A);
-	if (bw == CHANNEL_WIDTH_10) {
-		value32 |= (MAC_CLK_HW_DEF_20M << BIT_SHIFT_MAC_CLK_SEL_8812A);
-		rtw_write8(adapter, REG_USTIME_TSF, MAC_CLK_SPEED_20M);
-		rtw_write8(adapter, REG_USTIME_EDCA, MAC_CLK_SPEED_20M);
-	} else {
-		value32 |= (MAC_CLK_HW_DEF_80M << BIT_SHIFT_MAC_CLK_SEL_8812A);
-		rtw_write8(adapter, REG_USTIME_TSF, MAC_CLK_SPEED_80M);
-		rtw_write8(adapter, REG_USTIME_EDCA, MAC_CLK_SPEED_80M);
-	}
+	/* 8812A narrowband is a PHY ADC/DAC re-clock.  The MAC remains in
+	 * normal 20 MHz clocking mode, as do the WMAC and RF BW selectors. */
+	value32 |= (MAC_CLK_HW_DEF_80M << BIT_SHIFT_MAC_CLK_SEL_8812A);
+	rtw_write8(adapter, REG_USTIME_TSF, MAC_CLK_SPEED_80M);
+	rtw_write8(adapter, REG_USTIME_EDCA, MAC_CLK_SPEED_80M);
 	rtw_write32(adapter, REG_AFE_CTRL1_8812A, value32);
 }
 
@@ -1580,6 +1576,7 @@ phy_SetRegBW_8812(
 		rtw_write16(Adapter, REG_WMAC_TRXPTCL_CTL, (RegRfMod_BW & 0xFE7F)); /* BIT 7 = 0, BIT 8 = 0 */
 		break;
 
+	case CHANNEL_WIDTH_5:
 	case CHANNEL_WIDTH_10:
 		rtw_write16(Adapter, REG_WMAC_TRXPTCL_CTL, (RegRfMod_BW & 0xFE7F)); /* BIT 7 = 0, BIT 8 = 0 */
 		break;
@@ -1616,7 +1613,7 @@ phy_FixSpur_8812A(
 			phy_set_bb_reg(pAdapter, rRFMOD_Jaguar, 0xC00, 0x2);		/* 0x8AC[11:10] = 2'b10 */
 
 		/* <20120914, Kordan> A workarould to resolve 2480Mhz spur by setting ADC clock as 160M. (Asked by Binson) */
-		if ((Bandwidth == CHANNEL_WIDTH_20 || Bandwidth == CHANNEL_WIDTH_10) &&
+		if (Bandwidth == CHANNEL_WIDTH_20 &&
 		    (Channel == 13 || Channel == 14)) {
 
 			phy_set_bb_reg(pAdapter, rRFMOD_Jaguar, 0x300, 0x3);		/* 0x8AC[9:8] = 2'b11 */
@@ -1635,7 +1632,7 @@ phy_FixSpur_8812A(
 		}
 	} else if (IS_HARDWARE_TYPE_8812(pAdapter)) {
 		/* <20120914, Kordan> A workarould to resolve 2480Mhz spur by setting ADC clock as 160M. (Asked by Binson) */
-		if ((Bandwidth == CHANNEL_WIDTH_20 || Bandwidth == CHANNEL_WIDTH_10) &&
+		if (Bandwidth == CHANNEL_WIDTH_20 &&
 		    (Channel == 13 || Channel == 14))
 			phy_set_bb_reg(pAdapter, rRFMOD_Jaguar, 0x300, 0x3);  /* 0x8AC[9:8] = 11 */
 		else if (Channel <= 14) /* 2.4G only */
@@ -1681,18 +1678,37 @@ phy_PostSetBwMode8812(
 
 		break;
 
-	case CHANNEL_WIDTH_10:
-		phy_set_mac_clk_8812a(Adapter, CHANNEL_WIDTH_10);
-		phy_set_bb_reg(Adapter, rRFMOD_Jaguar, 0x003003C3, 0x00300200); /* same as 20M */
-		phy_set_bb_reg(Adapter, rRFMOD_Jaguar, bRFMOD_Jaguar, BIT(7) | CHANNEL_WIDTH_20);
-		phy_set_bb_reg(Adapter, rADC_Buf_Clk_Jaguar, BIT30, 0);			/* 0x8c4[30] = 1'b0 */
+	case CHANNEL_WIDTH_5:
+	case CHANNEL_WIDTH_10: {
+		/* SDR-characterized Jaguar1 recipe from OpenIPC/devourer. Keep RF
+		 * and WMAC in 20 MHz mode, divide the 8812A ADC/DAC clocks, and set
+		 * the small-bandwidth field in rRFMOD_Jaguar (0x8ac).
+		 *
+		 *                  DAC[21:20] ADC[9:8] small-BW[7:6]
+		 *   10 MHz             2          1          2
+		 *    5 MHz             1          0          1
+		 */
+		u32 is_5mhz = pHalData->current_channel_bw == CHANNEL_WIDTH_5;
+		u32 adc = is_5mhz ? 0 : 1;
+		u32 dac = is_5mhz ? 1 : 2;
+		u32 small_bw = is_5mhz ? 1 : 2;
+		u32 narrowband_8ac = (dac << 20) | (adc << 8) |
+			(small_bw << 6);
+
+		phy_set_mac_clk_8812a(Adapter, CHANNEL_WIDTH_20);
+		phy_set_bb_reg(Adapter, rRFMOD_Jaguar, 0x003003C3,
+			narrowband_8ac);
+		phy_set_bb_reg(Adapter, rADC_Buf_Clk_Jaguar, BIT30, 0);
 
 		if (pHalData->rf_type == RF_2T2R)
-			phy_set_bb_reg(Adapter, rL1PeakTH_Jaguar, 0x03C00000, 7);	/* 2R 0x848[25:22] = 0x7 */
+			phy_set_bb_reg(Adapter, rL1PeakTH_Jaguar, 0x03C00000, 7);
 		else
-			phy_set_bb_reg(Adapter, rL1PeakTH_Jaguar, 0x03C00000, 8);	/* 1R 0x848[25:22] = 0x8 */
+			phy_set_bb_reg(Adapter, rL1PeakTH_Jaguar, 0x03C00000, 8);
 
+		RTW_INFO("OpenHD: 8812A narrowband %u MHz, 0x8ac fields=%#x (adc=%u dac=%u smallbw=%u)\n",
+			is_5mhz ? 5 : 10, narrowband_8ac, adc, dac, small_bw);
 		break;
+	}
 
 	case CHANNEL_WIDTH_40:
 		phy_set_mac_clk_8812a(Adapter, CHANNEL_WIDTH_40);
@@ -1743,8 +1759,12 @@ phy_PostSetBwMode8812(
 		break;
 	}
 
-	/* <20121109, Kordan> A workaround for 8812A only. */
-	phy_FixSpur_8812A(Adapter, pHalData->current_channel_bw, pHalData->current_channel);
+	/* phy_FixSpur_8812A rewrites 0x8ac[9:8], which is the ADC divider in
+	 * narrowband mode. */
+	if (pHalData->current_channel_bw != CHANNEL_WIDTH_5 &&
+	    pHalData->current_channel_bw != CHANNEL_WIDTH_10)
+		phy_FixSpur_8812A(Adapter, pHalData->current_channel_bw,
+			pHalData->current_channel);
 
 	/* RTW_INFO("phy_PostSetBwMode8812(): Reg483: %x\n", rtw_read8(Adapter, 0x483)); */
 	/* RTW_INFO("phy_PostSetBwMode8812(): Reg668: %x\n", rtw_read32(Adapter, 0x668)); */
