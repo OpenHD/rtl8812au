@@ -48,7 +48,9 @@ jobs:
           compiler_major="$(arm-linux-gnueabihf-gcc -dumpversion | cut -d. -f1)"
           test "$compiler_major" = "13"
 
-          cache_version="6.1.29-v7l-$TOOLCHAIN_ID-$kernel_short"
+          # Bump this format tag whenever the prepared-tree layout changes so
+          # an older, incomplete archive can never be reused.
+          cache_version="kbuild-v2-6.1.29-v7l-$TOOLCHAIN_ID-$kernel_short"
           cache_archive="$RUNNER_TEMP/$KBUILD_PACKAGE-$kernel_commit.tar.zst"
 
           echo "commit=$kernel_commit" >> "$GITHUB_OUTPUT"
@@ -102,6 +104,14 @@ jobs:
             --exclude='.tmp_vmlinux*' \
             "$source_dir/" "$prepared_dir/"
 
+          # These are the two ABI-critical products of the modules build.
+          # Copy them explicitly so future pruning-pattern changes cannot
+          # silently turn the cache into an unusable headers-only tree.
+          install -m 644 "$source_dir/Module.symvers" \
+            "$prepared_dir/Module.symvers"
+          install -m 755 "$source_dir/scripts/mod/modpost" \
+            "$prepared_dir/scripts/mod/modpost"
+
           {
             echo "kernel_repository=$KERNEL_REPOSITORY"
             echo "kernel_branch=$KERNEL_BRANCH"
@@ -123,19 +133,38 @@ jobs:
           tar --zstd -C "$RUNNER_TEMP/openhd-kbuild" \
             -xf "${{ steps.kernel.outputs.archive }}"
 
-      # - name: Validate prepared OpenHD kernel environment
-      #   run: |
-      #     kernel_dir="$RUNNER_TEMP/openhd-kbuild"
-      #     info="$kernel_dir/.openhd-kbuild-info"
+      - name: Validate prepared OpenHD kernel environment
+        run: |
+          kernel_dir="$RUNNER_TEMP/openhd-kbuild"
+          info="$kernel_dir/.openhd-kbuild-info"
 
-      #     test -f "$info"
-      #     grep -Fx "kernel_commit=${{ steps.kernel.outputs.commit }}" "$info"
-      #     grep -Fx "kernel_release=$KERNEL_RELEASE" "$info"
-      #     grep -Fx "architecture=armhf" "$info"
-      #     grep -Fx "toolchain_id=$TOOLCHAIN_ID" "$info"
-      #     test -s "$kernel_dir/Module.symvers"
-      #     test -x "$kernel_dir/scripts/mod/modpost"
-      #     test "$(make -s -C "$kernel_dir" kernelrelease)" = "$KERNEL_RELEASE"
+          require_file() {
+            if ! test -s "$1"; then
+              echo "Required prepared-kernel file is missing or empty: $1" >&2
+              exit 1
+            fi
+          }
+
+          require_file "$info"
+          grep -Fx "kernel_commit=${{ steps.kernel.outputs.commit }}" "$info"
+          grep -Fx "kernel_release=$KERNEL_RELEASE" "$info"
+          grep -Fx "architecture=armhf" "$info"
+          grep -Fx "toolchain_id=$TOOLCHAIN_ID" "$info"
+          require_file "$kernel_dir/Module.symvers"
+          require_file "$kernel_dir/scripts/mod/modpost"
+          require_file "$kernel_dir/include/config/kernel.release"
+          test -x "$kernel_dir/scripts/mod/modpost" || {
+            echo "modpost is not executable: $kernel_dir/scripts/mod/modpost" >&2
+            exit 1
+          }
+
+          # Do not ask make to regenerate files in the deliberately pruned
+          # cache. This generated file is what external-module Kbuild uses.
+          actual_release="$(<"$kernel_dir/include/config/kernel.release")"
+          if test "$actual_release" != "$KERNEL_RELEASE"; then
+            echo "Kernel release mismatch: expected $KERNEL_RELEASE, got $actual_release" >&2
+            exit 1
+          fi
 
       - name: Cross-compile RTL8812AU module
         run: |
