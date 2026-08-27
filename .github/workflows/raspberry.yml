@@ -1,12 +1,12 @@
 name: Raspberry Pi Bullseye armhf
 
 on:
-  workflow_dispatch:
-  create:
+  push:
+    branches:
+      - v5.6.4.2
 
 jobs:
   build:
-    if: github.event_name == 'workflow_dispatch' || github.event.ref_type == 'tag'
     runs-on: ubuntu-22.04
     timeout-minutes: 90
     name: Build for OpenHD Pi kernel (Bullseye armhf)
