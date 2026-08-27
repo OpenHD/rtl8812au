@@ -16,6 +16,9 @@ jobs:
       KERNEL_REPOSITORY: https://github.com/OpenHD/linux.git
       KERNEL_BRANCH: rpi-6.1-stable
       KERNEL_RELEASE: 6.1.29-v7l+
+      KBUILD_PACKAGE: openhd-rpi-bullseye-armhf-kbuild
+      CLOUDSMITH_REPOSITORY: openhd/dev-release
+      CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
 
     steps:
       - name: Checkout driver
@@ -26,26 +29,106 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             bc bison flex gcc-arm-linux-gnueabihf \
-            kmod libelf-dev libssl-dev make
+            kmod libelf-dev libssl-dev make rsync zstd
 
-      - name: Fetch OpenHD Raspberry Pi kernel
+      - name: Install Cloudsmith CLI
+        uses: cloudsmith-io/cloudsmith-cli-action@v3
+        with:
+          api-key: ${{ secrets.CLOUDSMITH_API_KEY }}
+          verify-auth: "true"
+
+      - name: Resolve OpenHD kernel cache identity
+        id: kernel
         run: |
-          git clone --depth 1 --branch "$KERNEL_BRANCH" \
-            "$KERNEL_REPOSITORY" "$RUNNER_TEMP/openhd-linux"
+          kernel_commit="$(git ls-remote "$KERNEL_REPOSITORY" "refs/heads/$KERNEL_BRANCH" | awk '{print $1}')"
+          test -n "$kernel_commit"
 
-      - name: Prepare OpenHD Raspberry Pi module build
+          kernel_short="${kernel_commit:0:12}"
+          cache_version="6.1.29-v7l-$kernel_short"
+          cache_archive="$RUNNER_TEMP/$KBUILD_PACKAGE-$kernel_commit.tar.zst"
+
+          echo "commit=$kernel_commit" >> "$GITHUB_OUTPUT"
+          echo "version=$cache_version" >> "$GITHUB_OUTPUT"
+          echo "archive=$cache_archive" >> "$GITHUB_OUTPUT"
+
+      - name: Download prepared OpenHD kernel environment
+        id: kbuild_cache
         run: |
-          kernel_dir="$RUNNER_TEMP/openhd-linux"
-          make -C "$kernel_dir" clean
-          make -C "$kernel_dir" bcm2711_defconfig
+          if cloudsmith download "$CLOUDSMITH_REPOSITORY" "$KBUILD_PACKAGE" \
+            --version "${{ steps.kernel.outputs.version }}" \
+            --format raw \
+            --outfile "${{ steps.kernel.outputs.archive }}" \
+            --overwrite --yes; then
+            echo "hit=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "hit=false" >> "$GITHUB_OUTPUT"
+          fi
 
-          # CONFIG_MODVERSIONS=y, so modules_prepare alone does not create the
-          # Module.symvers needed by an ABI-compatible external module. Build
-          # only the kernel modules/symbol table; no kernel image or DTBs.
-          make -C "$kernel_dir" -j"$(nproc)" modules
+      - name: Generate prepared OpenHD kernel environment
+        if: steps.kbuild_cache.outputs.hit == 'false'
+        run: |
+          source_dir="$RUNNER_TEMP/openhd-linux-source"
+          prepared_dir="$RUNNER_TEMP/openhd-kbuild"
+          kernel_commit="${{ steps.kernel.outputs.commit }}"
 
-          actual_release="$(make -s -C "$kernel_dir" kernelrelease)"
-          test "$actual_release" = "$KERNEL_RELEASE"
+          git init "$source_dir"
+          git -C "$source_dir" remote add origin "$KERNEL_REPOSITORY"
+          git -C "$source_dir" fetch --depth 1 origin "$kernel_commit"
+          git -C "$source_dir" checkout --detach FETCH_HEAD
+          test "$(git -C "$source_dir" rev-parse HEAD)" = "$kernel_commit"
+
+          make -C "$source_dir" clean
+          make -C "$source_dir" bcm2711_defconfig
+
+          # OpenHD enables CONFIG_MODVERSIONS. A modules build is required once
+          # to create the complete, matching Module.symvers. Kernel images and
+          # DTBs are intentionally not built.
+          make -C "$source_dir" -j"$(nproc)" modules
+          test "$(make -s -C "$source_dir" kernelrelease)" = "$KERNEL_RELEASE"
+          test -s "$source_dir/Module.symvers"
+
+          mkdir -p "$prepared_dir"
+          # External modules do not need kernel object files. Keep generated
+          # headers, host tools, configuration and Module.symvers.
+          rsync -a \
+            --exclude='.git/' --exclude='*.o' --exclude='*.a' \
+            --exclude='*.ko' --exclude='*.mod' --exclude='*.mod.c' \
+            --exclude='modules.order' --exclude='.*.cmd' --exclude='*.d' \
+            --exclude='System.map' --exclude='vmlinux' \
+            --exclude='.tmp_vmlinux*' \
+            "$source_dir/" "$prepared_dir/"
+
+          {
+            echo "kernel_repository=$KERNEL_REPOSITORY"
+            echo "kernel_branch=$KERNEL_BRANCH"
+            echo "kernel_commit=$kernel_commit"
+            echo "kernel_release=$KERNEL_RELEASE"
+            echo "architecture=armhf"
+            echo "arch=$ARCH"
+            echo "cross_compile=$CROSS_COMPILE"
+          } > "$prepared_dir/.openhd-kbuild-info"
+
+          tar --zstd -C "$prepared_dir" -cf "${{ steps.kernel.outputs.archive }}" .
+
+      - name: Extract prepared OpenHD kernel environment
+        if: steps.kbuild_cache.outputs.hit == 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/openhd-kbuild"
+          tar --zstd -C "$RUNNER_TEMP/openhd-kbuild" \
+            -xf "${{ steps.kernel.outputs.archive }}"
+
+      - name: Validate prepared OpenHD kernel environment
+        run: |
+          kernel_dir="$RUNNER_TEMP/openhd-kbuild"
+          info="$kernel_dir/.openhd-kbuild-info"
+
+          test -f "$info"
+          grep -Fx "kernel_commit=${{ steps.kernel.outputs.commit }}" "$info"
+          grep -Fx "kernel_release=$KERNEL_RELEASE" "$info"
+          grep -Fx "architecture=armhf" "$info"
+          test -s "$kernel_dir/Module.symvers"
+          test -x "$kernel_dir/scripts/mod/modpost"
+          test "$(make -s -C "$kernel_dir" kernelrelease)" = "$KERNEL_RELEASE"
 
       - name: Cross-compile RTL8812AU module
         run: |
@@ -53,10 +136,22 @@ jobs:
           sed -i 's/CONFIG_PLATFORM_ARM_RPI = n/CONFIG_PLATFORM_ARM_RPI = y/' Makefile
 
           make clean
-          make KSRC="$RUNNER_TEMP/openhd-linux" -j"$(nproc)" M="$GITHUB_WORKSPACE" modules
+          make KSRC="$RUNNER_TEMP/openhd-kbuild" -j"$(nproc)" M="$GITHUB_WORKSPACE" modules
 
           test -s 88XXau_ohd.ko
           test "$(modinfo -F vermagic 88XXau_ohd.ko | awk '{print $1}')" = "$KERNEL_RELEASE"
+
+      - name: Publish prepared environment to Cloudsmith
+        if: steps.kbuild_cache.outputs.hit == 'false'
+        run: |
+          test -n "$CLOUDSMITH_API_KEY"
+          cloudsmith push raw "$CLOUDSMITH_REPOSITORY" \
+            "${{ steps.kernel.outputs.archive }}" \
+            --name "$KBUILD_PACKAGE" \
+            --version "${{ steps.kernel.outputs.version }}" \
+            --summary "Prepared OpenHD Raspberry Pi Bullseye armhf kernel environment" \
+            --description "Reusable external-module build environment for AU, EU, BU and CU drivers; kernel ${{ steps.kernel.outputs.commit }}" \
+            --republish
 
       - name: Package module
         run: |
@@ -68,9 +163,12 @@ jobs:
             echo "driver_commit=$GITHUB_SHA"
             echo "kernel_repository=$KERNEL_REPOSITORY"
             echo "kernel_branch=$KERNEL_BRANCH"
-            echo "kernel_commit=$(git -C "$RUNNER_TEMP/openhd-linux" rev-parse HEAD)"
+            echo "kernel_commit=${{ steps.kernel.outputs.commit }}"
             echo "kernel_release=$KERNEL_RELEASE"
             echo "architecture=armhf"
+            echo "kbuild_cache_hit=${{ steps.kbuild_cache.outputs.hit }}"
+            echo "kbuild_package=$KBUILD_PACKAGE"
+            echo "kbuild_version=${{ steps.kernel.outputs.version }}"
             echo "module_sha256=$(sha256sum 88XXau_ohd.ko | awk '{print $1}')"
           } > artifact/build-info.txt
 
