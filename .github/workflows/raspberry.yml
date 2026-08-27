@@ -33,12 +33,16 @@ jobs:
           git clone --depth 1 --branch "$KERNEL_BRANCH" \
             "$KERNEL_REPOSITORY" "$RUNNER_TEMP/openhd-linux"
 
-      - name: Build OpenHD Raspberry Pi kernel
+      - name: Prepare OpenHD Raspberry Pi module build
         run: |
           kernel_dir="$RUNNER_TEMP/openhd-linux"
           make -C "$kernel_dir" clean
           make -C "$kernel_dir" bcm2711_defconfig
-          make -C "$kernel_dir" -j"$(nproc)" zImage modules dtbs
+
+          # CONFIG_MODVERSIONS=y, so modules_prepare alone does not create the
+          # Module.symvers needed by an ABI-compatible external module. Build
+          # only the kernel modules/symbol table; no kernel image or DTBs.
+          make -C "$kernel_dir" -j"$(nproc)" modules
 
           actual_release="$(make -s -C "$kernel_dir" kernelrelease)"
           test "$actual_release" = "$KERNEL_RELEASE"
