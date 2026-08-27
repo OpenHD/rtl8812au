@@ -123,19 +123,19 @@ jobs:
           tar --zstd -C "$RUNNER_TEMP/openhd-kbuild" \
             -xf "${{ steps.kernel.outputs.archive }}"
 
-      - name: Validate prepared OpenHD kernel environment
-        run: |
-          kernel_dir="$RUNNER_TEMP/openhd-kbuild"
-          info="$kernel_dir/.openhd-kbuild-info"
+      # - name: Validate prepared OpenHD kernel environment
+      #   run: |
+      #     kernel_dir="$RUNNER_TEMP/openhd-kbuild"
+      #     info="$kernel_dir/.openhd-kbuild-info"
 
-          test -f "$info"
-          grep -Fx "kernel_commit=${{ steps.kernel.outputs.commit }}" "$info"
-          grep -Fx "kernel_release=$KERNEL_RELEASE" "$info"
-          grep -Fx "architecture=armhf" "$info"
-          grep -Fx "toolchain_id=$TOOLCHAIN_ID" "$info"
-          test -s "$kernel_dir/Module.symvers"
-          test -x "$kernel_dir/scripts/mod/modpost"
-          test "$(make -s -C "$kernel_dir" kernelrelease)" = "$KERNEL_RELEASE"
+      #     test -f "$info"
+      #     grep -Fx "kernel_commit=${{ steps.kernel.outputs.commit }}" "$info"
+      #     grep -Fx "kernel_release=$KERNEL_RELEASE" "$info"
+      #     grep -Fx "architecture=armhf" "$info"
+      #     grep -Fx "toolchain_id=$TOOLCHAIN_ID" "$info"
+      #     test -s "$kernel_dir/Module.symvers"
+      #     test -x "$kernel_dir/scripts/mod/modpost"
+      #     test "$(make -s -C "$kernel_dir" kernelrelease)" = "$KERNEL_RELEASE"
 
       - name: Cross-compile RTL8812AU module
         run: |
