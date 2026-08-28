@@ -4596,10 +4596,6 @@ s32 rtw_monitor_xmit_entry(struct sk_buff *skb, struct net_device *ndev)
 
 				// Set up defaults
 				pattrib->rate = MGN_MCS0;
-				/* Devourer uses rate-id 8 for raw HT injection.  Do not
-				 * inherit the VHT rate-id selected by update_monitor_frame_attrib;
-				 * that mismatch is especially visible at HT40 MCS0. */
-				pattrib->raid = RATEID_IDX_B;
 				pattrib->bwmode = IEEE80211_RADIOTAP_MCS_BW_20;
 				pattrib->ch_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
 				pattrib->ht_en = _TRUE;
