@@ -259,7 +259,10 @@ jobs:
           EOF
           chmod 0755 "$package_root/DEBIAN/postinst" "$package_root/DEBIAN/postrm"
 
-          dpkg-deb --root-owner-group --build "$package_root" "$deb_file"
+          # Bullseye's dpkg cannot read the zstd-compressed control/data
+          # members produced by Ubuntu 24's default. Force broadly compatible
+          # XZ compression and validate the resulting package on real boards.
+          dpkg-deb -Zxz --root-owner-group --build "$package_root" "$deb_file"
           test "$(dpkg-deb -f "$deb_file" Package)" = "$DEB_PACKAGE"
           test "$(dpkg-deb -f "$deb_file" Version)" = "$package_version"
           test "$(dpkg-deb -f "$deb_file" Architecture)" = "armhf"
