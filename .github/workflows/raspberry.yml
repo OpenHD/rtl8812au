@@ -19,6 +19,8 @@ jobs:
       TOOLCHAIN_ID: gcc13
       KBUILD_PACKAGE: openhd-rpi-bullseye-armhf-kbuild
       CLOUDSMITH_REPOSITORY: openhd/dev-release
+      CLOUDSMITH_DISTRIBUTION: bullseye
+      DEB_PACKAGE: openhd-rtl8812au-rpi-bullseye
       CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
 
     steps:
@@ -214,9 +216,83 @@ jobs:
 
           tar -C artifact -czf "rtl8812au-openhd-bullseye-armhf-$KERNEL_RELEASE.tar.gz" .
 
+      - name: Build Bullseye armhf deb package
+        id: deb
+        run: |
+          package_version="${GITHUB_REF_NAME#v}+openhd.${GITHUB_RUN_NUMBER}.${GITHUB_SHA:0:8}"
+          package_root="$RUNNER_TEMP/$DEB_PACKAGE"
+          module_dir="$package_root/lib/modules/$KERNEL_RELEASE/kernel/drivers/net/wireless/realtek/rtl8812au"
+          deb_file="${DEB_PACKAGE}_${package_version}_armhf.deb"
+
+          rm -rf "$package_root"
+          mkdir -p "$package_root/DEBIAN" "$module_dir" \
+            "$package_root/usr/share/doc/$DEB_PACKAGE"
+          install -m 0644 88XXau_ohd.ko "$module_dir/88XXau_wfb.ko"
+          install -m 0644 artifact/build-info.txt \
+            "$package_root/usr/share/doc/$DEB_PACKAGE/build-info.txt"
+
+          installed_size="$(du -sk "$package_root" | awk '{print $1}')"
+          cat > "$package_root/DEBIAN/control" <<EOF
+          Package: $DEB_PACKAGE
+          Version: $package_version
+          Section: kernel
+          Priority: optional
+          Architecture: armhf
+          Maintainer: OpenHD <maintainers@openhd.org>
+          Depends: kmod
+          Installed-Size: $installed_size
+          Description: OpenHD RTL8812AU module for Raspberry Pi Bullseye
+           Prebuilt 88XXau_wfb module for the OpenHD $KERNEL_RELEASE armhf kernel.
+          EOF
+
+          cat > "$package_root/DEBIAN/postinst" <<EOF
+          #!/bin/sh
+          set -e
+          depmod -a $KERNEL_RELEASE || true
+          exit 0
+          EOF
+          cat > "$package_root/DEBIAN/postrm" <<EOF
+          #!/bin/sh
+          set -e
+          depmod -a $KERNEL_RELEASE || true
+          exit 0
+          EOF
+          chmod 0755 "$package_root/DEBIAN/postinst" "$package_root/DEBIAN/postrm"
+
+          dpkg-deb --root-owner-group --build "$package_root" "$deb_file"
+          test "$(dpkg-deb -f "$deb_file" Package)" = "$DEB_PACKAGE"
+          test "$(dpkg-deb -f "$deb_file" Version)" = "$package_version"
+          test "$(dpkg-deb -f "$deb_file" Architecture)" = "armhf"
+
+          verify_dir="$RUNNER_TEMP/verify-deb"
+          rm -rf "$verify_dir"
+          dpkg-deb -x "$deb_file" "$verify_dir"
+          packaged_module="$verify_dir/lib/modules/$KERNEL_RELEASE/kernel/drivers/net/wireless/realtek/rtl8812au/88XXau_wfb.ko"
+          test -s "$packaged_module"
+          test "$(sha256sum "$packaged_module" | awk '{print $1}')" = \
+            "$(sha256sum 88XXau_ohd.ko | awk '{print $1}')"
+
+          echo "file=$deb_file" >> "$GITHUB_OUTPUT"
+          echo "version=$package_version" >> "$GITHUB_OUTPUT"
+
       - name: Upload Bullseye armhf module
         uses: actions/upload-artifact@v4
         with:
           name: rtl8812au-openhd-bullseye-armhf
           path: rtl8812au-openhd-bullseye-armhf-*.tar.gz
           if-no-files-found: error
+
+      - name: Upload Bullseye armhf deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: openhd-rtl8812au-rpi-bullseye-deb
+          path: ${{ steps.deb.outputs.file }}
+          if-no-files-found: error
+
+      - name: Publish Bullseye armhf deb to Cloudsmith
+        run: |
+          test -n "$CLOUDSMITH_API_KEY"
+          cloudsmith push deb \
+            "$CLOUDSMITH_REPOSITORY/debian/$CLOUDSMITH_DISTRIBUTION" \
+            "${{ steps.deb.outputs.file }}" \
+            --republish
