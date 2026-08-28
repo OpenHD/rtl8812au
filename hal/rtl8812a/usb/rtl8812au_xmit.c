@@ -283,6 +283,21 @@ static s32 update_txdesc(struct xmit_frame *pxmitframe, u8 *pmem, s32 sz , u8 ba
 
 		SET_TX_DESC_TX_RATE_8812(ptxdesc, MRateToHwRate(pattrib->rate));
 
+		/* Monitor injection uses management xmit frames, even when the
+		 * encapsulated 802.11 packet is data.  The vendor management branch
+		 * only programmed TX_RATE, leaving DATA_BW/SGI/FEC/STBC at zero; as a
+		 * result every OpenHD HT40 radiotap packet was emitted as 20 MHz.
+		 * Devourer writes these fields directly into every raw TX descriptor.
+		 * Do the equivalent here for injected HT/VHT frames. */
+		if (pattrib->injected == _TRUE && pattrib->ht_en) {
+			rtl8812a_fill_txdesc_phy(padapter, pattrib, ptxdesc);
+			if (pattrib->sgi)
+				SET_TX_DESC_DATA_SHORT_8812(ptxdesc, 1);
+			if (pattrib->ldpc)
+				SET_TX_DESC_DATA_LDPC_8812(ptxdesc, 1);
+			SET_TX_DESC_DATA_STBC_8812(ptxdesc, pattrib->stbc & 0x3);
+		}
+
 		/* VHT NDPA or HT NDPA Packet for Beamformer. */
 #ifdef CONFIG_BEAMFORMING
 		if ((pattrib->subtype == WIFI_NDPA) ||
