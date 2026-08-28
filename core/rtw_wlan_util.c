@@ -582,9 +582,33 @@ inline systime rtw_get_on_cur_ch_time(_adapter *adapter)
 void set_channel_bwmode(_adapter *padapter, unsigned char channel, unsigned char channel_offset, unsigned short bwmode)
 {
 	u8 center_ch, chnl_offset80 = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
+	int openhd_ch = get_openhd_override_channel();
+	int openhd_bw = get_openhd_override_channel_width();
 #if (defined(CONFIG_TDLS) && defined(CONFIG_TDLS_CH_SW)) || defined(CONFIG_MCC_MODE)
 	u8 iqk_info_backup = _FALSE;
 #endif
+
+	/* OpenHD monitor mode must remain on the configured channel width.  Several
+	 * legacy paths call set_channel_bwmode() directly (scan/restore/reset) and
+	 * therefore bypass both cfg80211 and rtw_set_chbw_hdl().  Enforce the
+	 * override here, immediately before deriving the center channel and touching
+	 * HAL, so a later 20 MHz request cannot silently undo a 40 MHz setup. */
+	if (openhd_ch > 0)
+		channel = (u8)openhd_ch;
+
+	if (openhd_bw > 0 && openhd_bw < CHANNEL_WIDTH_MAX) {
+		bwmode = (u16)openhd_bw;
+		if (bwmode == CHANNEL_WIDTH_40) {
+			u8 offset = channel_offset;
+
+			if (rtw_get_offset_by_chbw(channel, bwmode, &offset))
+				channel_offset = offset;
+		} else if (bwmode == CHANNEL_WIDTH_5 ||
+			   bwmode == CHANNEL_WIDTH_10 ||
+			   bwmode == CHANNEL_WIDTH_20) {
+			channel_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
+		}
+	}
 
 	if (padapter->bNotifyChannelChange)
 		RTW_INFO("[%s] ch = %d, offset = %d, bwmode = %d\n", __func__, channel, channel_offset, bwmode);

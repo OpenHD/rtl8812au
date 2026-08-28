@@ -441,8 +441,16 @@ BWMapping_8812(
 {
 	u8	BWSettingOfDesc = 0;
 	PHAL_DATA_TYPE	pHalData = GET_HAL_DATA(Adapter);
+	int openhd_bw = get_openhd_override_channel_width();
 
 	/* RTW_INFO("BWMapping pHalData->current_channel_bw %d, pattrib->bwmode %d\n",pHalData->current_channel_bw,pattrib->bwmode); */
+	/* Devourer writes DATA_BW=1 directly for 40 MHz frames.  Keep the normal
+	 * mapping below, but make the OpenHD monitor override decisive for injected
+	 * HT/VHT traffic instead of depending on stale per-packet radiotap/HAL state. */
+	if (pattrib->injected && openhd_bw == CHANNEL_WIDTH_40)
+		return 1;
+	if (pattrib->injected && openhd_bw == CHANNEL_WIDTH_80)
+		return 2;
 
 	if (pHalData->current_channel_bw == CHANNEL_WIDTH_80) {
 		if (pattrib->bwmode == CHANNEL_WIDTH_80)

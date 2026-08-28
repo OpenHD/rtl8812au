@@ -4654,6 +4654,7 @@ s32 rtw_monitor_xmit_entry(struct sk_buff *skb, struct net_device *ndev)
 				pattrib->ldpc = _FALSE;
 				pattrib->rate = MGN_VHT1SS_MCS0;
 				pattrib->raid = RATEID_IDX_VHT_1SS;
+				pattrib->ht_en = _TRUE;
 
 				// NOTE: this code currently only supports 1SS for radiotap defined rates
 
@@ -4711,22 +4712,36 @@ s32 rtw_monitor_xmit_entry(struct sk_buff *skb, struct net_device *ndev)
 			pattrib->ch_offset = pmlmeext->cur_ch_offset;
 	}
 
-	/* OpenHD: if a channel-width override is set, don't let radiotap force 20MHz */
+	/* OpenHD: the configured PHY width is authoritative for injected HT/VHT
+	 * packets.  OpenHD's radiotap MCS field describes the rate and commonly
+	 * carries BW_20 even when the radio is configured for HT40.  Devourer writes
+	 * DATA_BW directly from its configured TX mode; mirror that behaviour here
+	 * via pkt_attrib so the normal 8812AU descriptor path emits DATA_BW=1. */
 	{
 		int openhd_bw = get_openhd_override_channel_width();
-		if ((openhd_bw == CHANNEL_WIDTH_40 ||
+		if (pattrib->ht_en &&
+		    (openhd_bw == CHANNEL_WIDTH_40 ||
 		     openhd_bw == CHANNEL_WIDTH_80 ||
-		     openhd_bw == CHANNEL_WIDTH_160) &&
-		    pattrib->bwmode == CHANNEL_WIDTH_20) {
+		     openhd_bw == CHANNEL_WIDTH_160)) {
 			pattrib->bwmode = (u8)openhd_bw;
 			if (pattrib->bwmode >= CHANNEL_WIDTH_40 &&
 			    pattrib->ch_offset == HAL_PRIME_CHNL_OFFSET_DONT_CARE) {
 				u8 offset = pmlmeext->cur_ch_offset;
+				u8 channel = get_openhd_override_channel();
+
+				if (!channel)
+					channel = pmlmeext->cur_channel;
 
 				if (offset == HAL_PRIME_CHNL_OFFSET_DONT_CARE)
-					rtw_get_offset_by_chbw(pmlmeext->cur_channel, pattrib->bwmode, &offset);
+					rtw_get_offset_by_chbw(channel, pattrib->bwmode, &offset);
 				pattrib->ch_offset = offset;
 			}
+		} else if (pattrib->ht_en &&
+			   (openhd_bw == CHANNEL_WIDTH_5 ||
+			    openhd_bw == CHANNEL_WIDTH_10)) {
+			/* Narrowband uses a 20 MHz TX descriptor with divided BB clocks. */
+			pattrib->bwmode = CHANNEL_WIDTH_20;
+			pattrib->ch_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
 		}
 	}
 
